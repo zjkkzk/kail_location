@@ -4,7 +4,7 @@ fakelocation替代
 
 ui：Jetpack Compose
 
-框架 mvvn
+框架 mvvm
 
 参考（感谢）：
 
