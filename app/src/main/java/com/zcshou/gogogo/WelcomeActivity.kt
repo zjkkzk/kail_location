@@ -1,31 +1,25 @@
 package com.zcshou.gogogo
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.AlertDialog
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
-import android.text.Spannable
-import android.text.SpannableStringBuilder
-import android.text.TextPaint
-import android.text.method.LinkMovementMethod
-import android.text.style.ClickableSpan
-import android.view.Gravity
-import android.view.MotionEvent
-import android.view.View
-import android.widget.Button
-import android.widget.CheckBox
-import android.widget.TextView
+import android.provider.Settings
+import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.preference.PreferenceManager
+import com.zcshou.gogogo.ui.AgreementDialog
+import com.zcshou.gogogo.ui.WelcomeScreen
+import com.zcshou.gogogo.ui.theme.GoGoGoTheme
 import com.zcshou.utils.GoUtils
 import java.util.ArrayList
 
 class WelcomeActivity : AppCompatActivity() {
     private lateinit var preferences: SharedPreferences
-    private lateinit var checkBox: CheckBox
     private var mAgreement = false
     private var mPrivacy = false
 
@@ -39,15 +33,81 @@ class WelcomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_welcome)
 
         // 生成默认参数的值（一定要尽可能早的调用，因为后续有些界面可能需要使用参数）
         PreferenceManager.setDefaultValues(this, R.xml.preferences_main, false)
 
-        val startBtn = findViewById<Button>(R.id.startButton)
-        startBtn.setOnClickListener { startMainActivity() }
+        preferences = getSharedPreferences(KEY_ACCEPT_AGREEMENT, MODE_PRIVATE)
+        mPrivacy = preferences.getBoolean(KEY_ACCEPT_PRIVACY, false)
+        mAgreement = preferences.getBoolean(KEY_ACCEPT_AGREEMENT, false)
 
-        checkAgreementAndPrivacy()
+        setContent {
+            GoGoGoTheme {
+                var isChecked by remember { mutableStateOf(mPrivacy && mAgreement) }
+                var showAgreementDialog by remember { mutableStateOf(false) }
+                var showPrivacyDialog by remember { mutableStateOf(false) }
+
+                WelcomeScreen(
+                    onStartClick = { startMainActivity(isChecked) },
+                    onAgreementClick = { showAgreementDialog = true },
+                    onPrivacyClick = { showPrivacyDialog = true },
+                    isChecked = isChecked,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            if (!mPrivacy || !mAgreement) {
+                                GoUtils.DisplayToast(this, getString(R.string.app_error_read))
+                                isChecked = false
+                            } else {
+                                isChecked = true
+                            }
+                        } else {
+                            mPrivacy = false
+                            mAgreement = false
+                            doAcceptation()
+                            isChecked = false
+                        }
+                    }
+                )
+
+                if (showAgreementDialog) {
+                    AgreementDialog(
+                        title = stringResource(R.string.app_agreement),
+                        content = stringResource(R.string.app_agreement_content),
+                        onDismiss = {
+                            showAgreementDialog = false
+                            mAgreement = false
+                            doAcceptation()
+                            isChecked = mAgreement && mPrivacy
+                        },
+                        onAgree = {
+                            showAgreementDialog = false
+                            mAgreement = true
+                            doAcceptation()
+                            isChecked = mAgreement && mPrivacy
+                        }
+                    )
+                }
+
+                if (showPrivacyDialog) {
+                    AgreementDialog(
+                        title = stringResource(R.string.app_privacy),
+                        content = stringResource(R.string.app_privacy_content),
+                        onDismiss = {
+                            showPrivacyDialog = false
+                            mPrivacy = false
+                            doAcceptation()
+                            isChecked = mAgreement && mPrivacy
+                        },
+                        onAgree = {
+                            showPrivacyDialog = false
+                            mPrivacy = true
+                            doAcceptation()
+                            isChecked = mAgreement && mPrivacy
+                        }
+                    )
+                }
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -62,7 +122,7 @@ class WelcomeActivity : AppCompatActivity() {
             
             if (hasFineLocation || hasCoarseLocation) {
                 isPermission = true
-                startMainActivity()
+                startMainActivity(true) // Retry start
             } else {
                 // 必要的定位权限被拒绝，引导用户去设置
                 showPermissionSettingsDialog()
@@ -72,13 +132,13 @@ class WelcomeActivity : AppCompatActivity() {
     }
 
     private fun showPermissionSettingsDialog() {
-        AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle(R.string.app_name)
             .setMessage("GoGoGo需要位置权限才能运行。\n请点击“去设置”手动开启位置权限。")
             .setPositiveButton("去设置") { _, _ ->
                 try {
-                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                    intent.data = android.net.Uri.parse("package:$packageName")
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = Uri.parse("package:$packageName")
                     startActivity(intent)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -124,38 +184,32 @@ class WelcomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun startMainActivity() {
-        if (!checkBox.isChecked) {
-            GoUtils.DisplayToast(this, resources.getString(R.string.app_error_agreement))
+    private fun startMainActivity(isChecked: Boolean) {
+        if (!isChecked) {
+            GoUtils.DisplayToast(this, getString(R.string.app_error_agreement))
             return
         }
 
         if (!GoUtils.isNetworkAvailable(this)) {
-            GoUtils.DisplayToast(this, resources.getString(R.string.app_error_network))
+            GoUtils.DisplayToast(this, getString(R.string.app_error_network))
             return
         }
 
         if (!GoUtils.isGpsOpened(this)) {
-            GoUtils.DisplayToast(this, resources.getString(R.string.app_error_gps))
+            GoUtils.DisplayToast(this, getString(R.string.app_error_gps))
             return
         }
+
+        checkDefaultPermissions()
 
         if (isPermission) {
             val intent = Intent(this@WelcomeActivity, MainActivity::class.java)
             startActivity(intent)
             this@WelcomeActivity.finish()
-        } else {
-            checkDefaultPermissions()
         }
     }
 
     private fun doAcceptation() {
-        if (mAgreement && mPrivacy) {
-            checkBox.isChecked = true
-            checkDefaultPermissions()
-        } else {
-            checkBox.isChecked = false
-        }
         //实例化Editor对象
         val editor = preferences.edit()
         //存入数据
@@ -164,141 +218,7 @@ class WelcomeActivity : AppCompatActivity() {
         //提交修改
         editor.apply()
     }
-
-    private fun showAgreementDialog() {
-        val alertDialog = AlertDialog.Builder(this).create()
-        alertDialog.show()
-        alertDialog.setCancelable(false)
-        val window = alertDialog.window
-        if (window != null) {
-            window.setContentView(R.layout.user_agreement)
-            window.setGravity(Gravity.CENTER)
-            window.setWindowAnimations(R.style.DialogAnimFadeInFadeOut)
-
-            val tvContent = window.findViewById<TextView>(R.id.tv_content)
-            val tvCancel = window.findViewById<Button>(R.id.tv_cancel)
-            val tvAgree = window.findViewById<Button>(R.id.tv_agree)
-            val ssb = SpannableStringBuilder()
-            ssb.append(resources.getString(R.string.app_agreement_content))
-            tvContent.movementMethod = LinkMovementMethod.getInstance()
-            tvContent.setText(ssb, TextView.BufferType.SPANNABLE)
-
-            tvCancel.setOnClickListener {
-                mAgreement = false
-                doAcceptation()
-                alertDialog.cancel()
-            }
-
-            tvAgree.setOnClickListener {
-                mAgreement = true
-                doAcceptation()
-                alertDialog.cancel()
-            }
-        }
-    }
-
-    private fun showPrivacyDialog() {
-        val alertDialog = AlertDialog.Builder(this).create()
-        alertDialog.show()
-        alertDialog.setCancelable(false)
-        val window = alertDialog.window
-        if (window != null) {
-            window.setContentView(R.layout.user_privacy)
-            window.setGravity(Gravity.CENTER)
-            window.setWindowAnimations(R.style.DialogAnimFadeInFadeOut)
-
-            val tvContent = window.findViewById<TextView>(R.id.tv_content)
-            val tvCancel = window.findViewById<Button>(R.id.tv_cancel)
-            val tvAgree = window.findViewById<Button>(R.id.tv_agree)
-            val ssb = SpannableStringBuilder()
-            ssb.append(resources.getString(R.string.app_privacy_content))
-            tvContent.movementMethod = LinkMovementMethod.getInstance()
-            tvContent.setText(ssb, TextView.BufferType.SPANNABLE)
-
-            tvCancel.setOnClickListener {
-                mPrivacy = false
-                doAcceptation()
-                alertDialog.cancel()
-            }
-
-            tvAgree.setOnClickListener {
-                mPrivacy = true
-                doAcceptation()
-                alertDialog.cancel()
-            }
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private fun checkAgreementAndPrivacy() {
-        preferences = getSharedPreferences(KEY_ACCEPT_AGREEMENT, MODE_PRIVATE)
-        mPrivacy = preferences.getBoolean(KEY_ACCEPT_PRIVACY, false)
-        mAgreement = preferences.getBoolean(KEY_ACCEPT_AGREEMENT, false)
-
-        checkBox = findViewById(R.id.check_agreement)
-        // 拦截 CheckBox 的点击事件
-        checkBox.setOnTouchListener { v, event ->
-            if (v is TextView) {
-                val method = v.movementMethod
-                if (method != null && v.text is Spannable
-                    && event.action == MotionEvent.ACTION_UP
-                ) {
-                    if (method.onTouchEvent(v, v.text as Spannable, event)) {
-                        event.action = MotionEvent.ACTION_CANCEL
-                    }
-                }
-            }
-            false
-        }
-        checkBox.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (!mPrivacy || !mAgreement) {
-                    GoUtils.DisplayToast(this, resources.getString(R.string.app_error_read))
-                    checkBox.isChecked = false
-                }
-            } else {
-                mPrivacy = false
-                mAgreement = false
-            }
-        }
-
-        val str = getString(R.string.app_agreement_privacy)
-        val builder = getSpannableStringBuilder(str)
-
-        checkBox.text = builder
-        checkBox.movementMethod = LinkMovementMethod.getInstance()
-
-        if (mPrivacy && mAgreement) {
-            checkBox.isChecked = true
-            checkDefaultPermissions()
-        } else {
-            checkBox.isChecked = false
-        }
-    }
-
-    private fun getSpannableStringBuilder(str: String): SpannableStringBuilder {
-        val builder = SpannableStringBuilder(str)
-        val clickSpanAgreement = object : ClickableSpan() {
-            override fun onClick(widget: View) {
-                showAgreementDialog()
-            }
-
-            override fun updateDrawState(ds: TextPaint) {
-                ds.color = resources.getColor(R.color.colorPrimary, this@WelcomeActivity.theme)
-                ds.isUnderlineText = false
-            }
-        }
-        val agreementStart = str.indexOf("《")
-        val agreementEnd = str.indexOf("》") + 1
-        builder.setSpan(clickSpanAgreement, agreementStart, agreementEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        val clickSpanPrivacy = object : ClickableSpan() {
-            override fun onClick(widget: View) {
-                showPrivacyDialog()
-            }
-
-            override fun updateDrawState(ds: TextPaint) {
-                ds.color = resources.getColor(R.color.colorPrimary, this@WelcomeActivity.theme)
-                ds.isUnderlineText = false
+}                ds.isUnderlineText = false
             }
         }
         val privacyStart = str.indexOf("《", agreementEnd)

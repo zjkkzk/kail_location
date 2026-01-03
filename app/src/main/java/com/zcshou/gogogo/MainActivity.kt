@@ -18,12 +18,11 @@ import android.text.TextUtils
 import android.view.*
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.ActionBarDrawerToggle
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.widget.SearchView
-import androidx.appcompat.widget.Toolbar
-import androidx.core.view.GravityCompat
-import androidx.drawerlayout.widget.DrawerLayout
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.preference.PreferenceManager
 import com.baidu.location.BDAbstractLocationListener
 import com.baidu.location.BDLocation
@@ -33,15 +32,10 @@ import com.baidu.mapapi.map.*
 import com.baidu.mapapi.model.LatLng
 import com.baidu.mapapi.search.core.SearchResult
 import com.baidu.mapapi.search.geocode.*
-import com.baidu.mapapi.search.sug.OnGetSuggestionResultListener
-import com.baidu.mapapi.search.sug.SuggestionResult
-import com.baidu.mapapi.search.sug.SuggestionSearch
-import com.baidu.mapapi.search.sug.SuggestionSearchOption
 import com.elvishew.xlog.XLog
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.navigation.NavigationView
 import com.zcshou.database.DataBaseHistoryLocation
-import com.zcshou.database.DataBaseHistorySearch
+import com.zcshou.gogogo.ui.MainScreen
+import com.zcshou.gogogo.ui.theme.GoGoGoTheme
 import com.zcshou.service.ServiceGo
 import com.zcshou.utils.GoUtils
 import com.zcshou.utils.MapUtils
@@ -55,14 +49,15 @@ import java.io.IOException
 import java.util.*
 import kotlin.math.abs
 
-class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavigationItemSelectedListener {
+class MainActivity : BaseActivity(), SensorEventListener {
 
+    private val viewModel: MainViewModel by viewModels()
     private lateinit var mOkHttpClient: OkHttpClient
     private lateinit var sharedPreferences: SharedPreferences
 
     /*============================== 主界面地图 相关 ==============================*/
     /************** 地图 *****************/
-    private var mMapView: MapView? = null
+    private lateinit var mMapView: MapView
     private var mGeoCoder: GeoCoder? = null
     private var mSensorManager: SensorManager? = null
     private var mSensorAccelerometer: Sensor? = null
@@ -81,20 +76,9 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
     private var isMockServStart = false
     private var mServiceBinder: ServiceGo.ServiceGoBinder? = null
     private var mConnection: ServiceConnection? = null
-    private var mButtonStart: FloatingActionButton? = null
 
     /*============================== 历史记录 相关 ==============================*/
     private var mLocationHistoryDB: SQLiteDatabase? = null
-    private var mSearchHistoryDB: SQLiteDatabase? = null
-
-    /*============================== SearchView 相关 ==============================*/
-    private var searchView: SearchView? = null
-    private var mSearchList: ListView? = null
-    private var mSearchLayout: LinearLayout? = null
-    private var mSearchHistoryList: ListView? = null
-    private var mHistoryLayout: LinearLayout? = null
-    private var searchItem: MenuItem? = null
-    private var mSuggestionSearch: SuggestionSearch? = null
 
     /*============================== 更新 相关 ==============================*/
     private var mDownloadManager: DownloadManager? = null
@@ -151,51 +135,24 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
-
-        val drawer = findViewById<DrawerLayout>(R.id.drawer_layout)
-        val toggle = ActionBarDrawerToggle(
-            this, drawer, toolbar, R.string.nav_drawer_open, R.string.nav_drawer_close
-        )
-        drawer.addDrawerListener(toggle)
-        toggle.syncState()
-
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                val drawer = findViewById<DrawerLayout>(R.id.drawer_layout)
-                if (drawer.isDrawerOpen(GravityCompat.START)) {
-                    drawer.closeDrawer(GravityCompat.START)
-                } else {
-                    if (isMockServStart) {
-                        val intent = Intent(Intent.ACTION_MAIN)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        intent.addCategory(Intent.CATEGORY_HOME)
-                        startActivity(intent)
-                    } else {
-                        isEnabled = false
-                        onBackPressedDispatcher.onBackPressed()
-                    }
-                }
-            }
-        })
+        // setContentView(R.layout.activity_main) // Removed for Compose
 
         XLog.i("MainActivity: onCreate")
 
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
         mOkHttpClient = OkHttpClient()
-
-        initNavigationView()
+        
+        // Initialize MapView
+        mMapView = MapView(this)
+        mBaiduMap = mMapView.map
 
         initMap()
 
         initMapLocation()
 
-        initMapButton()
-
-        initGoBtn()
+        // initMapButton() // Handled by Compose
+        // initGoBtn() // Handled by Compose
+        // initNavigationView() // Handled by Compose
 
         mConnection = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -216,30 +173,157 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
 
         initLocationDataBase()
         initSearchDataBase()
-        initSearchView()
+        // initSearchView() // TODO: Migrate Search
 
         /* 检查更新 */
         if (sharedPreferences.getBoolean("setting_check_update", true)) {
             checkUpdate(true)
         }
+
+        setContent {
+            GoGoGoTheme {
+                val isMocking by viewModel.isMocking.collectAsState()
+                val selectedPoi by viewModel.selectedPoi.collectAsState()
+                val updateInfo by viewModel.updateInfo.collectAsState()
+                val searchResults by viewModel.searchResults.collectAsState()
+
+                MainScreen(
+                    mapView = mMapView,
+                    isMocking = isMocking,
+                    onToggleMock = { doGoLocation() },
+                    onZoomIn = { mBaiduMap?.setMapStatus(MapStatusUpdateFactory.zoomIn()) },
+                    onZoomOut = { mBaiduMap?.setMapStatus(MapStatusUpdateFactory.zoomOut()) },
+                    onLocate = {
+                        val latLng = LatLng(mCurrentLat, mCurrentLon)
+                        val u = MapStatusUpdateFactory.newLatLng(latLng)
+                        mBaiduMap?.animateMapStatus(u)
+                    },
+                    onLocationInputConfirm = { lat, lng, isBd09 ->
+                        val target = if (isBd09) {
+                            LatLng(lat, lng)
+                        } else {
+                            val wgs84 = MapUtils.wgs2bd(lng, lat)
+                            LatLng(wgs84[1], wgs84[0])
+                        }
+                        mMarkLatLngMap = target
+                        viewModel.setTargetLocation(target)
+
+                        mBaiduMap?.clear()
+                        val option = MarkerOptions()
+                            .position(target)
+                            .icon(mMapIndicator)
+                            .zIndex(9)
+                            .draggable(true)
+                        mBaiduMap?.addOverlay(option)
+                        mBaiduMap?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
+                        
+                        // Select POI manually
+                        viewModel.selectPoi(
+                             MainViewModel.PoiInfo(
+                                 name = "Custom Location",
+                                 address = "Lat: $lat, Lng: $lng",
+                                 latitude = target.latitude,
+                                 longitude = target.longitude
+                             )
+                        )
+                    },
+                    onMapTypeChange = { type ->
+                        mBaiduMap?.mapType = type
+                        viewModel.setMapType(type)
+                    },
+                    onNavigate = { id ->
+                        when(id) {
+                            R.id.nav_history -> startActivity(Intent(this, HistoryActivity::class.java))
+                            R.id.nav_settings -> startActivity(Intent(this, SettingsActivity::class.java))
+                            R.id.nav_dev -> {
+                                try {
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(this, "无法打开开发者选项", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            R.id.nav_update -> checkUpdate(false)
+                            // TODO: Add other navigation items
+                        }
+                    },
+                    appVersion = packageManager.getPackageInfo(packageName, 0).versionName,
+                    selectedPoi = selectedPoi,
+                    onPoiClose = { viewModel.selectPoi(null) },
+                    onPoiSave = { poi ->
+                        recordCurrentLocation(poi.longitude, poi.latitude)
+                        GoUtils.DisplayToast(this, resources.getString(R.string.app_location_save))
+                    },
+                    onPoiCopy = { poi ->
+                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val mClipData = ClipData.newPlainText("Label", "${poi.latitude},${poi.longitude}")
+                        cm.setPrimaryClip(mClipData)
+                        GoUtils.DisplayToast(this, resources.getString(R.string.app_location_copy))
+                    },
+                    onPoiShare = { poi ->
+                        ShareUtils.shareText(this, "分享位置", "${poi.longitude},${poi.latitude}")
+                    },
+                    onPoiFly = { poi ->
+                         // Fly button logic: Start mock location
+                         doGoLocation()
+                    },
+                    updateInfo = updateInfo,
+                    onUpdateDismiss = { viewModel.setUpdateInfo(null) },
+                    onUpdateConfirm = { url ->
+                        downloadApk(url)
+                        viewModel.setUpdateInfo(null)
+                    },
+                    searchResults = searchResults,
+                    onSearch = { query -> viewModel.search(query, mCurrentCity) },
+                    onClearSearchResults = { viewModel.clearSearchResults() },
+                    onSelectSearchResult = { item ->
+                        val lng = item[POI_LONGITUDE].toString()
+                        val lat = item[POI_LATITUDE].toString()
+                        val latVal = lat.toDoubleOrNull()
+                        val lngVal = lng.toDoubleOrNull()
+                        if (latVal != null && lngVal != null) {
+                            val target = LatLng(latVal, lngVal)
+                            mMarkLatLngMap = target
+                            viewModel.setTargetLocation(target)
+                            
+                            mBaiduMap?.clear()
+                            val option = MarkerOptions()
+                                .position(target)
+                                .icon(mMapIndicator)
+                                .zIndex(9)
+                                .draggable(true)
+                            mBaiduMap?.addOverlay(option)
+                            mBaiduMap?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
+                            
+                            viewModel.selectPoi(
+                                MainViewModel.PoiInfo(
+                                    name = item[POI_NAME].toString(),
+                                    address = item[POI_ADDRESS].toString(),
+                                    latitude = latVal,
+                                    longitude = lngVal
+                                )
+                            )
+                        }
+                    }
+                )
+            }
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        mMapView?.onResume()
+        mMapView.onResume()
 
         mSensorManager?.registerListener(this, mSensorAccelerometer, SensorManager.SENSOR_DELAY_UI)
         mSensorManager?.registerListener(this, mSensorMagnetic, SensorManager.SENSOR_DELAY_UI)
 
         /* 检查是否在模拟中 */
         isMockServStart = GoUtils.isServiceRunning(this, ServiceGo::class.java.name)
+        viewModel.setMockingState(isMockServStart) // Sync ViewModel
         if (isMockServStart) {
-            mButtonStart?.setImageResource(R.drawable.ic_stop_black_24dp)
             // Bind service if running
             val serviceIntent = Intent(this, ServiceGo::class.java)
             bindService(serviceIntent, mConnection!!, Context.BIND_AUTO_CREATE)
-        } else {
-            mButtonStart?.setImageResource(R.drawable.ic_play_arrow_black_24dp)
         }
 
         /* 检查是否开启了位置模拟 */
@@ -250,7 +334,7 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
 
     override fun onPause() {
         super.onPause()
-        mMapView?.onPause()
+        mMapView.onPause()
         mSensorManager?.unregisterListener(this)
         if (mConnection != null && isMockServStart) {
             try {
@@ -264,13 +348,10 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
     override fun onDestroy() {
         mLocClient?.stop()
         mBaiduMap?.isMyLocationEnabled = false
-        mMapView?.onDestroy()
-        mMapView = null
+        mMapView.onDestroy()
         mBaiduMap = null
         mGeoCoder?.destroy()
-        mSuggestionSearch?.destroy()
         mLocationHistoryDB?.close()
-        mSearchHistoryDB?.close()
         if (mDownloadBdRcv != null) {
             unregisterReceiver(mDownloadBdRcv)
         }
@@ -330,23 +411,8 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     /*============================== UI初始化 ==============================*/
-    private fun initNavigationView() {
-        val navigationView = findViewById<NavigationView>(R.id.nav_view)
-        navigationView.setNavigationItemSelectedListener(this)
-
-        val headerView = navigationView.getHeaderView(0)
-        val imageButton = headerView.findViewById<View>(R.id.app_icon)
-        imageButton.setOnClickListener {
-            val drawer = findViewById<DrawerLayout>(R.id.drawer_layout)
-            if (drawer.isDrawerOpen(GravityCompat.START)) {
-                drawer.closeDrawer(GravityCompat.START)
-            }
-        }
-    }
-
     private fun initMap() {
-        mMapView = findViewById(R.id.bdMapView)
-        mBaiduMap = mMapView?.map
+        // mMapView and mBaiduMap are initialized in onCreate
 
         // 开启定位图层
         mBaiduMap?.isMyLocationEnabled = true
@@ -435,14 +501,13 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
                     .draggable(true)
                 mBaiduMap?.addOverlay(option)
                 mBaiduMap?.setMapStatus(MapStatusUpdateFactory.newLatLng(mMarkLatLngMap))
-                mBaiduMap?.showInfoWindow(
-                    InfoWindow(
-                        Button(this@MainActivity).apply {
-                            text = reverseGeoCodeResult.address
-                            setOnClickListener { mBaiduMap?.hideInfoWindow() }
-                        },
-                        mMarkLatLngMap,
-                        -47
+                
+                viewModel.selectPoi(
+                    MainViewModel.PoiInfo(
+                        name = reverseGeoCodeResult.address,
+                        address = reverseGeoCodeResult.address,
+                        latitude = mMarkLatLngMap.latitude,
+                        longitude = mMarkLatLngMap.longitude
                     )
                 )
 
@@ -511,81 +576,6 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
         mLocClient?.start()
     }
 
-    private fun initMapButton() {
-        /* 缩放按钮 */
-        val btnZoomIn = findViewById<ImageButton>(R.id.zoom_in)
-        val btnZoomOut = findViewById<ImageButton>(R.id.zoom_out)
-        btnZoomIn?.setOnClickListener {
-            val zoom = mBaiduMap?.mapStatus?.zoom ?: return@setOnClickListener
-            if (zoom <= 21) {
-                mBaiduMap?.setMapStatus(MapStatusUpdateFactory.zoomTo(zoom + 1))
-            }
-        }
-        btnZoomOut?.setOnClickListener {
-            val zoom = mBaiduMap?.mapStatus?.zoom ?: return@setOnClickListener
-            if (zoom >= 4) {
-                mBaiduMap?.setMapStatus(MapStatusUpdateFactory.zoomTo(zoom - 1))
-            }
-        }
-
-        /* 卫星图 */
-        val radioGroup = findViewById<RadioGroup>(R.id.RadioGroupMapType)
-        radioGroup?.setOnCheckedChangeListener { _, checkedId ->
-            if (mBaiduMap == null) return@setOnCheckedChangeListener
-            try {
-                if (checkedId == R.id.mapSatellite) {
-                    mBaiduMap?.mapType = BaiduMap.MAP_TYPE_SATELLITE
-                } else {
-                    mBaiduMap?.mapType = BaiduMap.MAP_TYPE_NORMAL
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        /* 路况图 - 布局中未找到对应按钮，暂不实现 */
-        // val btnTraffic = findViewById<Button>(R.id.btn_traffic)
-        // btnTraffic.setOnClickListener {
-        //     if (mBaiduMap?.isTrafficEnabled == true) {
-        //         mBaiduMap?.isTrafficEnabled = false
-        //         btnTraffic.text = "路况(关)"
-        //     } else {
-        //         mBaiduMap?.isTrafficEnabled = true
-        //         btnTraffic.text = "路况(开)"
-        //     }
-        // }
-
-        /* 定位 */
-        val btnLocation = findViewById<ImageButton>(R.id.cur_position)
-        btnLocation.setOnClickListener {
-            val ll = LatLng(mCurrentLat, mCurrentLon)
-            val u = MapStatusUpdateFactory.newLatLng(ll)
-            mBaiduMap?.animateMapStatus(u)
-        }
-    }
-
-    private fun initGoBtn() {
-        mButtonStart = findViewById(R.id.faBtnStart)
-        XLog.i("initGoBtn: mButtonStart = $mButtonStart")
-        mButtonStart?.setOnClickListener {
-            XLog.i("mButtonStart clicked")
-            if (Build.VERSION.SDK_INT >= 23) {
-                if (Settings.canDrawOverlays(this@MainActivity)) {
-                    XLog.i("Overlay permission granted, calling doGoLocation")
-                    doGoLocation()
-                } else {
-                    XLog.i("Overlay permission missing, requesting...")
-                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
-                    intent.data = Uri.parse("package:$packageName") // 直接跳转到本应用的设置页
-                    GoUtils.DisplayToast(this@MainActivity, "需要悬浮窗权限")
-                    startActivity(intent)
-                }
-            } else {
-                doGoLocation()
-            }
-        }
-    }
-
     private fun doGoLocation() {
         XLog.i("doGoLocation called")
         if (!GoUtils.isAllowMockLocation(this)) {
@@ -615,7 +605,6 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
                 XLog.e("Error unbinding service", e)
             }
             stopService(intent)
-            mButtonStart?.setImageResource(R.drawable.ic_play_arrow_black_24dp)
             isMockServStart = false
         } else {
             XLog.i("Starting Mock Service...")
@@ -632,9 +621,9 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
                 startService(intent)
             }
             bindService(intent, mConnection!!, Context.BIND_AUTO_CREATE)
-            mButtonStart?.setImageResource(R.drawable.ic_stop_black_24dp)
             isMockServStart = true
         }
+        viewModel.setMockingState(isMockServStart)
     }
 
     /*============================== SQLite 相关 ==============================*/
@@ -645,215 +634,6 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
         } catch (e: Exception) {
             XLog.e("MainActivity", "ERROR - initLocationDataBase")
         }
-    }
-
-    private fun initSearchDataBase() {
-        try {
-            val hisSearchDBHelper = DataBaseHistorySearch(applicationContext)
-            mSearchHistoryDB = hisSearchDBHelper.writableDatabase
-        } catch (e: Exception) {
-            XLog.e("MainActivity", "ERROR - initSearchDataBase")
-        }
-    }
-
-    /*============================== Search 相关 ==============================*/
-    private fun initSearchView() {
-        mSearchLayout = findViewById(R.id.search_linear)
-        mSearchList = findViewById(R.id.search_list_view)
-        mHistoryLayout = findViewById(R.id.search_history_linear)
-        mSearchHistoryList = findViewById(R.id.search_history_list_view)
-        mSuggestionSearch = SuggestionSearch.newInstance()
-
-        mSuggestionSearch?.setOnGetSuggestionResultListener { suggestionResult ->
-            if (suggestionResult == null || suggestionResult.allSuggestions == null) {
-                return@setOnGetSuggestionResultListener
-            }
-
-            val data = ArrayList<Map<String, Any>>()
-            for (info in suggestionResult.allSuggestions) {
-                if (info.key != null) {
-                    val item = HashMap<String, Any>()
-                    item[POI_NAME] = info.key
-                    item[POI_ADDRESS] = if (info.city != null && info.district != null) info.city + info.district else ""
-                    if (info.pt != null) {
-                        item[POI_LATITUDE] = info.pt.latitude
-                        item[POI_LONGITUDE] = info.pt.longitude
-                        data.add(item)
-                    }
-                }
-            }
-
-            val simpleAdapter = SimpleAdapter(
-                this@MainActivity,
-                data,
-                R.layout.search_poi_item,
-                arrayOf(POI_NAME, POI_ADDRESS),
-                intArrayOf(R.id.poi_name, R.id.poi_address)
-            )
-            mSearchList?.adapter = simpleAdapter
-            simpleAdapter.notifyDataSetChanged()
-        }
-
-        mSearchList?.onItemClickListener = AdapterView.OnItemClickListener { parent, _, position, _ ->
-            val map = parent.adapter.getItem(position) as HashMap<*, *>
-            mMarkName = map[POI_NAME] as String
-            mMarkLatLngMap = LatLng(
-                (map[POI_LATITUDE] as Double),
-                (map[POI_LONGITUDE] as Double)
-            )
-            searchView?.setQuery(mMarkName, true)
-
-            /* 隐藏搜索框 */
-            mSearchLayout?.visibility = View.GONE
-            mHistoryLayout?.visibility = View.GONE
-            searchItem?.collapseActionView()
-        }
-    }
-
-    private fun showSearchHistory() {
-        val data = ArrayList<Map<String, Any>>()
-        val cursor = mSearchHistoryDB?.query(
-            DataBaseHistorySearch.TABLE_NAME, null, null, null, null, null,
-            DataBaseHistorySearch.DB_COLUMN_TIMESTAMP + " DESC", null
-        )
-
-        cursor?.let {
-            while (it.moveToNext()) {
-                val item = HashMap<String, Any>()
-                val id = it.getInt(0)
-                val text = it.getString(1)
-                item["id"] = id
-                item["text"] = text
-                data.add(item)
-            }
-            it.close()
-        }
-
-        val adapter = SimpleAdapter(
-            this,
-            data,
-            R.layout.search_history_item,
-            arrayOf("text"),
-            intArrayOf(R.id.HistoryText)
-        )
-        mSearchHistoryList?.adapter = adapter
-
-        mSearchHistoryList?.onItemClickListener = AdapterView.OnItemClickListener { parent, _, position, _ ->
-            val map = parent.adapter.getItem(position) as HashMap<*, *>
-            val text = map["text"] as String
-            searchView?.setQuery(text, true)
-        }
-
-        val closeBtnId = resources.getIdentifier("search_close_btn", "id", "androidx.appcompat")
-        val closeButton = searchView?.findViewById<ImageView>(closeBtnId)
-        closeButton?.setOnClickListener {
-            val searchSrcTextId = resources.getIdentifier("search_src_text", "id", "androidx.appcompat")
-            val et = findViewById<EditText>(searchSrcTextId)
-            et?.setText("")
-            searchView?.setQuery("", false)
-            mSearchLayout?.visibility = View.INVISIBLE
-            mHistoryLayout?.visibility = View.VISIBLE
-        }
-    }
-
-    /*============================== Menu 相关 ==============================*/
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.menu_main, menu)
-        searchItem = menu.findItem(R.id.action_search)
-        searchView = searchItem?.actionView as SearchView?
-
-        searchView?.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String): Boolean {
-                if (query.isNotEmpty()) {
-                    /* Geo搜索 */
-                    mGeoCoder?.geocode(
-                        GeoCodeOption().city(mCurrentCity ?: "").address(query)
-                    )
-                    /* 保存搜索历史 */
-                    DataBaseHistorySearch.addHistorySearch(mSearchHistoryDB, query)
-                }
-                mSearchLayout?.visibility = View.GONE
-                mHistoryLayout?.visibility = View.GONE
-                searchItem?.collapseActionView()
-                return false
-            }
-
-            override fun onQueryTextChange(newText: String): Boolean {
-                if (newText.isEmpty()) {
-                    mSearchLayout?.visibility = View.GONE
-                    mHistoryLayout?.visibility = View.VISIBLE
-                    showSearchHistory()
-                } else {
-                    mSearchLayout?.visibility = View.VISIBLE
-                    mHistoryLayout?.visibility = View.GONE
-                    mSuggestionSearch?.requestSuggestion(
-                        SuggestionSearchOption().city(mCurrentCity ?: "").keyword(newText)
-                    )
-                }
-                return false
-            }
-        })
-
-        searchView?.setOnSearchClickListener {
-            mHistoryLayout?.visibility = View.VISIBLE
-            showSearchHistory()
-        }
-        
-        // Handle search view close/collapse to hide lists
-        searchItem?.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
-             override fun onMenuItemActionExpand(item: MenuItem): Boolean {
-                 return true
-             }
-
-             override fun onMenuItemActionCollapse(item: MenuItem): Boolean {
-                 mSearchLayout?.visibility = View.GONE
-                 mHistoryLayout?.visibility = View.GONE
-                 return true
-             }
-        })
-
-        return true
-    }
-
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        val id = item.itemId
-        when (id) {
-            R.id.nav_settings -> {
-                val intent = Intent(this, SettingsActivity::class.java)
-                startActivity(intent)
-            }
-            R.id.nav_history -> {
-                val intent = Intent(this, HistoryActivity::class.java)
-                startActivity(intent)
-            }
-            R.id.nav_dev -> {
-                if (!GoUtils.isDeveloperOptionsEnabled(this)) {
-                    GoUtils.DisplayToast(this, resources.getString(R.string.app_error_dev))
-                } else {
-                    try {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-                        startActivity(intent)
-                    } catch (e: Exception) {
-                        GoUtils.DisplayToast(this, resources.getString(R.string.app_error_dev))
-                    }
-                }
-            }
-            R.id.nav_update -> {
-                checkUpdate(true)
-            }
-            R.id.nav_feedback -> {
-                val file = File(getExternalFilesDir("Logs"), GoApplication.LOG_FILE_NAME)
-                ShareUtils.shareFile(this, file, item.title.toString())
-            }
-            R.id.nav_contact -> {
-                val uri = Uri.parse("https://gitee.com/itexp/gogogo/issues")
-                val intent = Intent(Intent.ACTION_VIEW, uri)
-                startActivity(intent)
-            }
-        }
-        val drawer = findViewById<DrawerLayout>(R.id.drawer_layout)
-        drawer.closeDrawer(GravityCompat.START)
-        return true
     }
 
     /*============================== Update 相关 ==============================*/
@@ -889,18 +669,14 @@ class MainActivity : BaseActivity(), SensorEventListener, NavigationView.OnNavig
 
                         if (version_new > version_old) {
                             runOnUiThread {
-                                val markwon = Markwon.create(this@MainActivity)
-                                val builder = AlertDialog.Builder(this@MainActivity)
-                                builder.setTitle("发现新版本: $tag_name")
-                                val tvContent = TextView(this@MainActivity)
-                                markwon.setMarkdown(tvContent, body)
-                                tvContent.setPadding(40, 20, 40, 20)
-                                builder.setView(tvContent)
-                                builder.setPositiveButton("下载") { _, _ ->
-                                    downloadApk(browser_download_url)
-                                }
-                                builder.setNegativeButton("取消", null)
-                                builder.show()
+                                viewModel.setUpdateInfo(
+                                    MainViewModel.UpdateInfo(
+                                        version = tag_name,
+                                        content = body,
+                                        downloadUrl = browser_download_url,
+                                        filename = asset.getString("name")
+                                    )
+                                )
                             }
                         } else {
                             if (!isAuto) {

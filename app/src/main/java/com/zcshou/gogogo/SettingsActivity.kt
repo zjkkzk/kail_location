@@ -1,8 +1,10 @@
 package com.zcshou.gogogo
 
 import android.os.Bundle
-import android.view.MenuItem
-import androidx.appcompat.app.ActionBar
+import androidx.activity.compose.setContent
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zcshou.gogogo.ui.SettingsScreen
+import com.zcshou.gogogo.ui.theme.GoGoGoTheme
 
 class SettingsActivity : BaseActivity() {
 
@@ -16,28 +18,14 @@ class SettingsActivity : BaseActivity() {
          * */
         window.statusBarColor = resources.getColor(R.color.colorPrimary, this.theme)
 
-        setContentView(R.layout.activity_settings)
-
-        if (savedInstanceState == null) {
-            supportFragmentManager
-                .beginTransaction()
-                .replace(R.id.settings, FragmentSettings())
-                .commit()
+        setContent {
+            GoGoGoTheme {
+                val viewModel: SettingsViewModel = viewModel()
+                SettingsScreen(
+                    viewModel = viewModel,
+                    onBackClick = { finish() }
+                )
+            }
         }
-
-        /* 获取默认的顶部的标题栏（安卓称为 ActionBar）*/
-        val actionBar: ActionBar? = supportActionBar
-        actionBar?.setDisplayHomeAsUpEnabled(true)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        val id = item.itemId
-
-        if (id == android.R.id.home) {
-            this.finish() // back button
-            return true
-        }
-
-        return super.onOptionsItemSelected(item)
     }
 }
