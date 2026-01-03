@@ -3,7 +3,6 @@ package com.kail.location.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,8 +12,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.kail.location.R
@@ -72,36 +73,24 @@ fun WelcomeScreen(
                         append("已阅读")
                     }
                     
-                    pushStringAnnotation(tag = "agreement", annotation = "agreement")
-                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                        append(agreementPart)
+                    withLink(LinkAnnotation.Clickable("agreement") { onAgreementClick() }) {
+                        withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                            append(agreementPart)
+                        }
                     }
-                    pop()
 
                     withStyle(style = SpanStyle(color = Color.White)) {
                         append("和")
                     }
 
-                    pushStringAnnotation(tag = "privacy", annotation = "privacy")
-                    withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                        append(privacyPart)
+                    withLink(LinkAnnotation.Clickable("privacy") { onPrivacyClick() }) {
+                        withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                            append(privacyPart)
+                        }
                     }
-                    pop()
                 }
 
-                ClickableText(
-                    text = annotatedString,
-                    onClick = { offset ->
-                        annotatedString.getStringAnnotations(tag = "agreement", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                onAgreementClick()
-                            }
-                        annotatedString.getStringAnnotations(tag = "privacy", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                onPrivacyClick()
-                            }
-                    }
-                )
+                Text(text = annotatedString)
             }
         }
     }

@@ -14,7 +14,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,7 +105,7 @@ fun JoyStickHistoryOverlay(
             ) {
                 items(historyRecords) { record ->
                     HistoryItem(record = record, onClick = { onSelectRecord(record) })
-                    Divider()
+                    HorizontalDivider()
                 }
             }
         }
@@ -242,7 +248,7 @@ fun JoyStickMapOverlay(
                             showSearchResults = false
                             searchQuery = "" // Clear search?
                         })
-                        Divider()
+                        HorizontalDivider()
                     }
                 }
             }

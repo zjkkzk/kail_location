@@ -115,6 +115,7 @@ object GoUtils {
                         false, true, true, true, ProviderProperties.POWER_USAGE_HIGH, ProviderProperties.ACCURACY_FINE
                     )
                 } else {
+                    @Suppress("DEPRECATION")
                     locationManager.addTestProvider(
                         LocationManager.GPS_PROVIDER, false, true, false,
                         false, true, true, true, Criteria.POWER_HIGH, Criteria.ACCURACY_FINE
@@ -176,6 +177,7 @@ object GoUtils {
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 packageInfo.longVersionCode.toInt()
             } else {
+                @Suppress("DEPRECATION")
                 packageInfo.versionCode
             }
         } catch (e: Exception) {

@@ -570,7 +570,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
             }
         })
         val option = LocationClientOption()
-        option.isOpenGps = true
+        option.setOpenGps(true)
         option.setCoorType("bd09ll")
         option.setScanSpan(1000)
         mLocClient?.locOption = option
@@ -641,7 +641,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
     /*============================== Update 相关 ==============================*/
     private fun checkUpdate(isAuto: Boolean) {
         val request = Request.Builder()
-            .url("https://api.github.com/repos/zcshou/GoGoGo/releases/latest")
+            .url("https://api.github.com/repos/noellegazelle6/kail_location/releases/latest")
             .build()
         val call = mOkHttpClient.newCall(request)
         call.enqueue(object : Callback {

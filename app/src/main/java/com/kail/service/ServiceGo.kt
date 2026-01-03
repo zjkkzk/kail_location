@@ -11,7 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
-import android.location.Criteria
 import android.location.Location
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
@@ -328,17 +327,17 @@ class ServiceGo : Service() {
         try {
             // 注意，由于 android api 问题，下面的参数会提示错误(以下参数是通过相关API获取的真实GPS参数，不是随便写的)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                mLocManager.addTestProvider(
-                    LocationManager.GPS_PROVIDER, false, true, false,
-                    false, true, true, true, ProviderProperties.POWER_USAGE_HIGH, ProviderProperties.ACCURACY_FINE
-                )
-            } else {
-                @Suppress("DEPRECATION")
-                mLocManager.addTestProvider(
-                    LocationManager.GPS_PROVIDER, false, true, false,
-                    false, true, true, true, Criteria.POWER_HIGH, Criteria.ACCURACY_FINE
-                )
-            }
+                    mLocManager.addTestProvider(
+                        LocationManager.GPS_PROVIDER, false, true, false,
+                        false, true, true, true, ProviderProperties.POWER_USAGE_HIGH, ProviderProperties.ACCURACY_FINE
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    mLocManager.addTestProvider(
+                        LocationManager.GPS_PROVIDER, false, true, false,
+                        false, true, true, true, 3 /* POWER_HIGH */, 1 /* ACCURACY_FINE */
+                    )
+                }
             if (!mLocManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 mLocManager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true)
             }
@@ -351,7 +350,7 @@ class ServiceGo : Service() {
         try {
             // 尽可能模拟真实的 GPS 数据
             val loc = Location(LocationManager.GPS_PROVIDER)
-            loc.accuracy = Criteria.ACCURACY_FINE.toFloat()    // 设定此位置的估计水平精度，以米为单位。
+            loc.accuracy = 1.0f // ACCURACY_FINE
             loc.altitude = mCurAlt                     // 设置高度，在 WGS 84 参考坐标系中的米
             loc.bearing = mCurBea                       // 方向（度）
             loc.latitude = mCurLat                   // 纬度（度）
@@ -403,7 +402,7 @@ class ServiceGo : Service() {
                 mLocManager.addTestProvider(
                     LocationManager.NETWORK_PROVIDER, true, false,
                     true, true, true, true,
-                    true, Criteria.POWER_LOW, Criteria.ACCURACY_COARSE
+                    true, 1 /* POWER_LOW */, 2 /* ACCURACY_COARSE */
                 )
             }
             if (!mLocManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
@@ -418,7 +417,7 @@ class ServiceGo : Service() {
         try {
             // 尽可能模拟真实的 GPS 数据
             val loc = Location(LocationManager.NETWORK_PROVIDER)
-            loc.accuracy = Criteria.ACCURACY_FINE.toFloat()    // 设定此位置的估计水平精度，以米为单位。
+            loc.accuracy = 1.0f // ACCURACY_FINE
             loc.altitude = mCurAlt                     // 设置高度，在 WGS 84 参考坐标系中的米
             loc.bearing = mCurBea                       // 方向（度）
             loc.latitude = mCurLat                   // 纬度（度）
