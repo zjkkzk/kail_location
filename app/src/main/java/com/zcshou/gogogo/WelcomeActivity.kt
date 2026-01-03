@@ -128,7 +128,11 @@ class WelcomeActivity : AppCompatActivity() {
                 showPermissionSettingsDialog()
             }
         }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        try {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showPermissionSettingsDialog() {
@@ -217,13 +221,5 @@ class WelcomeActivity : AppCompatActivity() {
         editor.putBoolean(KEY_ACCEPT_PRIVACY, mPrivacy)
         //提交修改
         editor.apply()
-    }
-}                ds.isUnderlineText = false
-            }
-        }
-        val privacyStart = str.indexOf("《", agreementEnd)
-        val privacyEnd = str.indexOf("》", agreementEnd) + 1
-        builder.setSpan(clickSpanPrivacy, privacyStart, privacyEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        return builder
     }
 }

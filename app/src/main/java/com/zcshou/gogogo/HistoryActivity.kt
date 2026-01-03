@@ -9,6 +9,14 @@ import com.zcshou.utils.GoUtils
 
 class HistoryActivity : BaseActivity() {
 
+    companion object {
+        const val KEY_ID = "KEY_ID"
+        const val KEY_LOCATION = "KEY_LOCATION"
+        const val KEY_TIME = "KEY_TIME"
+        const val KEY_LNG_LAT_WGS = "KEY_LNG_LAT_WGS"
+        const val KEY_LNG_LAT_CUSTOM = "KEY_LNG_LAT_CUSTOM"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

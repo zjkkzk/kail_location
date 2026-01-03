@@ -31,11 +31,14 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import com.zcshou.gogogo.MainActivity
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.ImageView
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    mapView: MapView,
+    mapView: MapView?,
     isMocking: Boolean,
     onToggleMock: () -> Unit,
     onZoomIn: () -> Unit,
@@ -171,10 +174,16 @@ fun MainScreen(
         ) { paddingValues ->
             Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                 // Map View
-                AndroidView(
-                    factory = { mapView },
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (mapView != null) {
+                    AndroidView(
+                        factory = { mapView },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("地图加载失败，请检查权限或网络", color = Color.Red)
+                    }
+                }
 
                 // Map Controls Overlay
                 Column(
@@ -246,14 +255,14 @@ fun MainScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().clickable { onMapTypeChange(1); showMapTypeDialog = false }
                     ) {
-                        RadioButton(selected = mapView.map.mapType == 1, onClick = { onMapTypeChange(1); showMapTypeDialog = false })
+                        RadioButton(selected = mapView?.map?.mapType == 1, onClick = { onMapTypeChange(1); showMapTypeDialog = false })
                         Text("普通地图")
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().clickable { onMapTypeChange(2); showMapTypeDialog = false }
                     ) {
-                        RadioButton(selected = mapView.map.mapType == 2, onClick = { onMapTypeChange(2); showMapTypeDialog = false })
+                        RadioButton(selected = mapView?.map?.mapType == 2, onClick = { onMapTypeChange(2); showMapTypeDialog = false })
                         Text("卫星地图")
                     }
                 }
@@ -356,9 +365,12 @@ fun DrawerHeader(version: String) {
             .background(MaterialTheme.colorScheme.primaryContainer)
             .padding(16.dp)
     ) {
-        Image(
-            painter = painterResource(R.mipmap.ic_launcher_round),
-            contentDescription = "App Icon",
+        AndroidView(
+            factory = { context ->
+                ImageView(context).apply {
+                    setImageResource(R.mipmap.ic_launcher_round)
+                }
+            },
             modifier = Modifier.size(64.dp)
         )
         Spacer(modifier = Modifier.height(12.dp))

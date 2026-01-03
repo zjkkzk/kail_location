@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.baidu.mapapi.map.MapView
 import com.zcshou.gogogo.R
+import com.zcshou.gogogo.HistoryActivity
+import com.zcshou.gogogo.MainActivity
 
 @Composable
 fun JoyStickHistoryOverlay(
@@ -103,9 +105,6 @@ fun JoyStickHistoryOverlay(
         }
     }
 }
-
-import com.zcshou.gogogo.HistoryActivity
-import com.zcshou.gogogo.MainActivity
 
 @Composable
 fun HistoryItem(

@@ -15,12 +15,14 @@ import android.location.Location
 import android.location.LocationManager
 import android.location.provider.ProviderProperties
 import android.os.*
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.elvishew.xlog.XLog
 import com.zcshou.gogogo.MainActivity
 import com.zcshou.gogogo.R
-import com.zcshou.joystick.JoyStick
 import com.zcshou.utils.GoUtils
+import com.zcshou.joystick.JoyStick
+import com.zcshou.joystick.ui.JoyStickOverlay
 import kotlin.math.abs
 import kotlin.math.cos
 
@@ -81,10 +83,16 @@ class ServiceGo : Service() {
             initNotification()
             
             try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                    GoUtils.DisplayToast(applicationContext, "请授予悬浮窗权限")
+                    // Don't return, try to init anyway, or maybe open settings?
+                    // Service cannot easily open settings and wait.
+                    // But we can try to init JoyStick, it might fail inside.
+                }
                 initJoyStick()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 XLog.e("ServiceGo: Error initializing JoyStick", e)
-                GoUtils.DisplayToast(applicationContext, "悬浮窗初始化失败，请检查权限或重启应用")
+                GoUtils.DisplayToast(applicationContext, "悬浮窗初始化失败: ${e.message}")
             }
 
             XLog.i("ServiceGo: onCreate finished")
@@ -105,8 +113,14 @@ class ServiceGo : Service() {
             if (this::mJoyStick.isInitialized) {
                 try {
                     mJoyStick.setCurrentPosition(mCurLng, mCurLat, mCurAlt)
+                    // Retry showing joystick if it was hidden or permission was just granted
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
+                        mJoyStick.show()
+                    } else {
+                        GoUtils.DisplayToast(applicationContext, "请授予悬浮窗权限")
+                    }
                 } catch (e: Exception) {
-                    XLog.e("ServiceGo: Error setting current position", e)
+                    XLog.e("ServiceGo: Error setting current position or showing joystick", e)
                 }
             }
         }

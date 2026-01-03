@@ -33,14 +33,16 @@ class GoApplication : Application() {
         }
     }
 
+    private var mDefaultHandler: Thread.UncaughtExceptionHandler? = null
+
     override fun onCreate() {
         super.onCreate()
 
+        mDefaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             writeCrashToFile(throwable)
             throwable.printStackTrace()
-            // 可以在这里重启应用或者退出
-            // android.os.Process.killProcess(android.os.Process.myPid())
+            mDefaultHandler?.uncaughtException(thread, throwable)
         }
 
         initXlog()
@@ -54,7 +56,7 @@ class GoApplication : Application() {
             // 在使用 SDK 各组间之前初始化 context 信息，传入 ApplicationContext
             SDKInitializer.initialize(this)
             SDKInitializer.setCoordType(CoordType.BD09LL)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             // 记录初始化失败日志
             XLog.e("Baidu Map SDK init failed", e)

@@ -57,7 +57,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
 
     /*============================== 主界面地图 相关 ==============================*/
     /************** 地图 *****************/
-    private lateinit var mMapView: MapView
+    private var mMapView: MapView? = null
     private var mGeoCoder: GeoCoder? = null
     private var mSensorManager: SensorManager? = null
     private var mSensorAccelerometer: Sensor? = null
@@ -133,6 +133,21 @@ class MainActivity : BaseActivity(), SensorEventListener {
         }
     }
 
+    private fun recordCurrentLocation(lng: Double, lat: Double) {
+        val bd09Lng = lng.toString()
+        val bd09Lat = lat.toString()
+        val wgs84 = MapUtils.bd2wgs(lng, lat)
+        DataBaseHistoryLocation.addHistoryLocation(
+            mLocationHistoryDB,
+            mMarkName ?: "Unknown",
+            wgs84[0].toString(),
+            wgs84[1].toString(),
+            (System.currentTimeMillis() / 1000).toString(),
+            bd09Lng,
+            bd09Lat
+        )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // setContentView(R.layout.activity_main) // Removed for Compose
@@ -143,12 +158,15 @@ class MainActivity : BaseActivity(), SensorEventListener {
         mOkHttpClient = OkHttpClient()
         
         // Initialize MapView
-        mMapView = MapView(this)
-        mBaiduMap = mMapView.map
-
-        initMap()
-
-        initMapLocation()
+        try {
+            mMapView = MapView(this)
+            mBaiduMap = mMapView?.map
+            initMap()
+            initMapLocation()
+        } catch (e: Throwable) {
+            XLog.e("MainActivity: Error initializing MapView", e)
+            Toast.makeText(this, "地图初始化失败: ${e.message}", Toast.LENGTH_LONG).show()
+        }
 
         // initMapButton() // Handled by Compose
         // initGoBtn() // Handled by Compose
@@ -172,7 +190,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
         mSensorManager?.registerListener(this, mSensorMagnetic, SensorManager.SENSOR_DELAY_UI)
 
         initLocationDataBase()
-        initSearchDataBase()
+        // initSearchDataBase()
         // initSearchView() // TODO: Migrate Search
 
         /* 检查更新 */
@@ -202,7 +220,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                         val target = if (isBd09) {
                             LatLng(lat, lng)
                         } else {
-                            val wgs84 = MapUtils.wgs2bd(lng, lat)
+                            val wgs84 = MapUtils.wgs2bd09(lng, lat)
                             LatLng(wgs84[1], wgs84[0])
                         }
                         mMarkLatLngMap = target
@@ -247,7 +265,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                             // TODO: Add other navigation items
                         }
                     },
-                    appVersion = packageManager.getPackageInfo(packageName, 0).versionName,
+                    appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "",
                     selectedPoi = selectedPoi,
                     onPoiClose = { viewModel.selectPoi(null) },
                     onPoiSave = { poi ->
@@ -312,50 +330,33 @@ class MainActivity : BaseActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        mMapView.onResume()
-
-        mSensorManager?.registerListener(this, mSensorAccelerometer, SensorManager.SENSOR_DELAY_UI)
-        mSensorManager?.registerListener(this, mSensorMagnetic, SensorManager.SENSOR_DELAY_UI)
-
-        /* 检查是否在模拟中 */
-        isMockServStart = GoUtils.isServiceRunning(this, ServiceGo::class.java.name)
-        viewModel.setMockingState(isMockServStart) // Sync ViewModel
-        if (isMockServStart) {
-            // Bind service if running
-            val serviceIntent = Intent(this, ServiceGo::class.java)
-            bindService(serviceIntent, mConnection!!, Context.BIND_AUTO_CREATE)
-        }
-
-        /* 检查是否开启了位置模拟 */
-        if (!GoUtils.isAllowMockLocation(this)) {
-            GoUtils.DisplayToast(this, "请在开发者选项中开启模拟位置权限！")
-        }
+        mMapView?.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        mMapView.onPause()
-        mSensorManager?.unregisterListener(this)
-        if (mConnection != null && isMockServStart) {
-            try {
-                unbindService(mConnection!!)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        mMapView?.onPause()
     }
 
     override fun onDestroy() {
+        super.onDestroy()
+        mMapView?.onDestroy()
         mLocClient?.stop()
         mBaiduMap?.isMyLocationEnabled = false
-        mMapView.onDestroy()
+        mMapView = null
         mBaiduMap = null
-        mGeoCoder?.destroy()
-        mLocationHistoryDB?.close()
+        try {
+            if (isMockServStart && mConnection != null) {
+                unbindService(mConnection!!)
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+        
         if (mDownloadBdRcv != null) {
             unregisterReceiver(mDownloadBdRcv)
+            mDownloadBdRcv = null
         }
-        super.onDestroy()
     }
 
     /*
@@ -609,10 +610,11 @@ class MainActivity : BaseActivity(), SensorEventListener {
         } else {
             XLog.i("Starting Mock Service...")
             val intent = Intent(this, ServiceGo::class.java)
-            // 传递坐标信息
-            intent.putExtra(LAT_MSG_ID, mMarkLatLngMap.latitude)
-            intent.putExtra(LNG_MSG_ID, mMarkLatLngMap.longitude)
-            XLog.i("Putting extras: lat=${mMarkLatLngMap.latitude}, lng=${mMarkLatLngMap.longitude}")
+            // 传递坐标信息 (Convert BD09 to WGS84 for ServiceGo/MockLocation)
+            val wgs84 = MapUtils.bd2wgs(mMarkLatLngMap.longitude, mMarkLatLngMap.latitude)
+            intent.putExtra(LAT_MSG_ID, wgs84[1])
+            intent.putExtra(LNG_MSG_ID, wgs84[0])
+            XLog.i("Putting extras: lat=${wgs84[1]}, lng=${wgs84[0]}")
 
             // 8.0 之后需要 startForegroundService
             if (Build.VERSION.SDK_INT >= 26) {
@@ -664,7 +666,11 @@ class MainActivity : BaseActivity(), SensorEventListener {
                         val browser_download_url = asset.getString("browser_download_url")
                         mUpdateFilename = asset.getString("name")
 
-                        val version_new = tag_name.replace("v", "").replace(".", "").toInt()
+                        val version_new = try {
+                            tag_name.replace(Regex("[^0-9]"), "").toInt()
+                        } catch (e: Exception) {
+                            0
+                        }
                         val version_old = GoUtils.getVersionCode(this@MainActivity)
 
                         if (version_new > version_old) {

@@ -84,7 +84,7 @@ class JoyStick @JvmOverloads constructor(
             initJoyStickView()
             try {
                 initJoyStickMapView()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 XLog.e("JoyStick: Error initializing MapView", e)
             }
             initHistoryView()

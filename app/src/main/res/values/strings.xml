@@ -2,6 +2,9 @@
     <string name="app_name">影梭</string>
     <string name="app_settings">设置</string>
     <string name="app_history">历史记录</string>
+    <string name="history_title">历史记录</string>
+    <string name="history_search_hint">搜索历史记录</string>
+    <string name="history_no_record">暂无历史记录</string>
     <string name="app_author">ZCShou</string>
     <string name="app_email">zcsexp@gmail.com</string>
     <string name="app_statement">仅供学习使用，否则后果自负！</string>
