@@ -1,4 +1,4 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.Manifest
 import android.content.Intent
@@ -12,10 +12,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
 import androidx.preference.PreferenceManager
-import com.zcshou.gogogo.ui.AgreementDialog
-import com.zcshou.gogogo.ui.WelcomeScreen
-import com.zcshou.gogogo.ui.theme.GoGoGoTheme
-import com.zcshou.utils.GoUtils
+import com.kail.location.ui.AgreementDialog
+import com.kail.location.ui.WelcomeScreen
+import com.kail.location.ui.theme.GoGoGoTheme
+import com.kail.utils.GoUtils
 import java.util.ArrayList
 
 class WelcomeActivity : AppCompatActivity() {

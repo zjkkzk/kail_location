@@ -1,4 +1,4 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.Manifest
 import android.app.DownloadManager
@@ -33,13 +33,13 @@ import com.baidu.mapapi.model.LatLng
 import com.baidu.mapapi.search.core.SearchResult
 import com.baidu.mapapi.search.geocode.*
 import com.elvishew.xlog.XLog
-import com.zcshou.database.DataBaseHistoryLocation
-import com.zcshou.gogogo.ui.MainScreen
-import com.zcshou.gogogo.ui.theme.GoGoGoTheme
-import com.zcshou.service.ServiceGo
-import com.zcshou.utils.GoUtils
-import com.zcshou.utils.MapUtils
-import com.zcshou.utils.ShareUtils
+import com.kail.database.DataBaseHistoryLocation
+import com.kail.location.ui.MainScreen
+import com.kail.location.ui.theme.GoGoGoTheme
+import com.kail.service.ServiceGo
+import com.kail.utils.GoUtils
+import com.kail.utils.MapUtils
+import com.kail.utils.ShareUtils
 import io.noties.markwon.Markwon
 import okhttp3.*
 import org.json.JSONException

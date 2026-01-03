@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.zcshou.gogogo"
+    namespace = "com.kail.location"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.zcshou.gogogo"
+        applicationId = "com.kail.location"
         minSdk = 27
         targetSdk = 36
         versionCode = 1

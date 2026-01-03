@@ -1,4 +1,4 @@
-package com.zcshou.joystick
+package com.kail.joystick
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -23,15 +23,15 @@ import com.baidu.mapapi.search.core.PoiInfo
 import com.baidu.mapapi.search.sug.SuggestionSearch
 import com.baidu.mapapi.search.sug.SuggestionSearchOption
 import com.elvishew.xlog.XLog
-import com.zcshou.database.DataBaseHistoryLocation
-import com.zcshou.gogogo.HistoryActivity
-import com.zcshou.gogogo.MainActivity
-import com.zcshou.gogogo.R
-import com.zcshou.joystick.ui.JoyStickHistoryOverlay
-import com.zcshou.joystick.ui.JoyStickMapOverlay
-import com.zcshou.joystick.ui.JoyStickOverlay
-import com.zcshou.utils.GoUtils
-import com.zcshou.utils.MapUtils
+import com.kail.database.DataBaseHistoryLocation
+import com.kail.location.HistoryActivity
+import com.kail.location.MainActivity
+import com.kail.location.R
+import com.kail.joystick.ui.JoyStickHistoryOverlay
+import com.kail.joystick.ui.JoyStickMapOverlay
+import com.kail.joystick.ui.JoyStickOverlay
+import com.kail.utils.GoUtils
+import com.kail.utils.MapUtils
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.util.*

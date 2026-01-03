@@ -1,4 +1,4 @@
-package com.zcshou.service
+package com.kail.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -19,11 +19,11 @@ import android.os.*
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.elvishew.xlog.XLog
-import com.zcshou.gogogo.MainActivity
-import com.zcshou.gogogo.R
-import com.zcshou.utils.GoUtils
-import com.zcshou.joystick.JoyStick
-import com.zcshou.joystick.ui.JoyStickOverlay
+import com.kail.location.MainActivity
+import com.kail.location.R
+import com.kail.utils.GoUtils
+import com.kail.joystick.JoyStick
+import com.kail.joystick.ui.JoyStickOverlay
 import kotlin.math.abs
 import kotlin.math.cos
 

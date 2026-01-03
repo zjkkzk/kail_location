@@ -1,10 +1,10 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zcshou.gogogo.ui.SettingsScreen
-import com.zcshou.gogogo.ui.theme.GoGoGoTheme
+import com.kail.location.ui.SettingsScreen
+import com.kail.location.ui.theme.GoGoGoTheme
 
 class SettingsActivity : BaseActivity() {
 

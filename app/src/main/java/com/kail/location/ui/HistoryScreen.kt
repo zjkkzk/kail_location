@@ -1,4 +1,4 @@
-package com.zcshou.gogogo.ui
+package com.kail.location.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -21,9 +21,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.zcshou.gogogo.HistoryRecord
-import com.zcshou.gogogo.HistoryViewModel
-import com.zcshou.gogogo.R
+import com.kail.location.HistoryRecord
+import com.kail.location.HistoryViewModel
+import com.kail.location.R
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable

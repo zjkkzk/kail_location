@@ -1,4 +1,4 @@
-package com.zcshou.gogogo.ui.theme
+package com.kail.location.ui.theme
 
 import android.app.Activity
 import android.os.Build

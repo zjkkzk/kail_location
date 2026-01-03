@@ -1,10 +1,10 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.preference.PreferenceManager
-import com.zcshou.utils.GoUtils
+import com.kail.utils.GoUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

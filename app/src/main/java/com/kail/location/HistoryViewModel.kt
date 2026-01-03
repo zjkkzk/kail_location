@@ -1,4 +1,4 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.app.Application
 import android.content.Context
@@ -8,8 +8,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
-import com.zcshou.database.DataBaseHistoryLocation
-import com.zcshou.utils.GoUtils
+import com.kail.database.DataBaseHistoryLocation
+import com.kail.utils.GoUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

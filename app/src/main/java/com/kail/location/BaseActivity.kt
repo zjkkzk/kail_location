@@ -1,4 +1,4 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity

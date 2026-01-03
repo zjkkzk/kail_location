@@ -1,4 +1,4 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel

@@ -1,4 +1,4 @@
-package com.zcshou.joystick.ui
+package com.kail.joystick.ui
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -28,8 +28,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.preference.PreferenceManager
-import com.zcshou.gogogo.R
-import com.zcshou.gogogo.SettingsViewModel
+import com.kail.location.R
+import com.kail.location.SettingsViewModel
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min

@@ -1,4 +1,4 @@
-package com.zcshou.gogogo.ui
+package com.kail.location.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,9 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.baidu.mapapi.map.MapView
-import com.zcshou.gogogo.R
-import com.zcshou.gogogo.MainViewModel.PoiInfo
-import com.zcshou.gogogo.MainViewModel.UpdateInfo
+import com.kail.location.R
+import com.kail.location.MainViewModel.PoiInfo
+import com.kail.location.MainViewModel.UpdateInfo
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import com.zcshou.gogogo.MainActivity
+import com.kail.location.MainActivity
 import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.ImageView
 

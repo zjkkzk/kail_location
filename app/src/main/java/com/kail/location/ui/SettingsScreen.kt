@@ -1,4 +1,4 @@
-package com.zcshou.gogogo.ui
+package com.kail.location.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,8 +17,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.zcshou.gogogo.R
-import com.zcshou.gogogo.SettingsViewModel
+import com.kail.location.R
+import com.kail.location.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

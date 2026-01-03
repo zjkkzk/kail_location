@@ -1,4 +1,4 @@
-package com.zcshou.joystick.ui
+package com.kail.joystick.ui
 
 import android.view.View
 import android.widget.TextView
@@ -26,9 +26,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.baidu.mapapi.map.MapView
-import com.zcshou.gogogo.R
-import com.zcshou.gogogo.HistoryActivity
-import com.zcshou.gogogo.MainActivity
+import com.kail.location.R
+import com.kail.location.HistoryActivity
+import com.kail.location.MainActivity
 
 @Composable
 fun JoyStickHistoryOverlay(

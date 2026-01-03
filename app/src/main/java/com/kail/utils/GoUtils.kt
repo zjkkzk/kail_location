@@ -1,4 +1,4 @@
-package com.zcshou.utils
+package com.kail.utils
 
 import android.annotation.SuppressLint
 import android.content.Context

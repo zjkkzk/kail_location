@@ -1,11 +1,11 @@
-package com.zcshou.gogogo
+package com.kail.location
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.zcshou.gogogo.ui.HistoryScreen
-import com.zcshou.gogogo.ui.theme.GoGoGoTheme
-import com.zcshou.utils.GoUtils
+import com.kail.location.ui.HistoryScreen
+import com.kail.location.ui.theme.GoGoGoTheme
+import com.kail.utils.GoUtils
 
 class HistoryActivity : BaseActivity() {
 
