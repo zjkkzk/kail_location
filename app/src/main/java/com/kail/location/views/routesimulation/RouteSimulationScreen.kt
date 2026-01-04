@@ -34,7 +34,8 @@ import com.kail.location.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteSimulationScreen(
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onAddRouteClick: () -> Unit
 ) {
     // State
     var settings by remember { mutableStateOf(SimulationSettings()) }
@@ -117,7 +118,7 @@ fun RouteSimulationScreen(
                 
                 // FAB overlapping the card
                 FloatingActionButton(
-                    onClick = { /* TODO: Add route */ },
+                    onClick = onAddRouteClick,
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = CircleShape,
