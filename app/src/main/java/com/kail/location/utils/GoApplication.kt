@@ -15,7 +15,7 @@ import com.elvishew.xlog.printer.file.naming.ChangelessFileNameGenerator
 
 class GoApplication : Application() {
     companion object {
-        const val APP_NAME = "GoGoGo"
+        const val APP_NAME = "KailLocation"
         const val LOG_FILE_NAME = "$APP_NAME.log"
         private const val MAX_TIME = (1000 * 60 * 60 * 24 * 3).toLong() // 3 days
     }

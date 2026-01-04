@@ -93,10 +93,10 @@ fun MainScreen(
                 DrawerHeader(appVersion)
                 HorizontalDivider()
                 NavigationDrawerItem(
-                    label = { Text(stringResource(R.string.nav_menu_history)) },
-                    icon = { Icon(painterResource(R.drawable.ic_menu_history), contentDescription = null) },
+                    label = { Text(stringResource(R.string.nav_menu_location_simulation)) },
+                    icon = { Icon(painterResource(R.drawable.ic_position), contentDescription = null) },
                     selected = false,
-                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_history) } }
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_location_simulation) } }
                 )
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.nav_menu_route_simulation)) },

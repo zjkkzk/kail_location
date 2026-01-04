@@ -14,150 +14,217 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.ImageView
+import kotlinx.coroutines.launch
 import com.kail.location.models.RouteInfo
 import com.kail.location.models.SimulationSettings
 import com.kail.location.models.TransportMode
 import com.kail.location.R
+import com.kail.location.viewmodels.RouteSimulationViewModel
+import com.kail.location.views.common.DrawerHeader
 
-// Data Models
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import com.kail.location.views.common.UpdateDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteSimulationScreen(
-    onBackClick: () -> Unit,
-    onAddRouteClick: () -> Unit
+    viewModel: RouteSimulationViewModel,
+    onNavigate: (Int) -> Unit,
+    onAddRouteClick: () -> Unit,
+    appVersion: String
 ) {
     // State
+    val context = LocalContext.current
     var settings by remember { mutableStateOf(SimulationSettings()) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     
-    // Mock Data
-    val currentRoute = RouteInfo("1", "天安门", "圆明园")
-    val historyRoutes = listOf(
-        RouteInfo("2", "天安门", "圆明园"),
-        RouteInfo("3", "万达广场", "火车站"),
-        RouteInfo("4", "家", "公司")
-    )
+    val historyRoutes by viewModel.historyRoutes.collectAsState()
+    val currentRoute = historyRoutes.firstOrNull() ?: RouteInfo("-", "暂无", "暂无", "")
+    val updateInfo by viewModel.updateInfo.collectAsState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Background with dual colors
-        Column(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(280.dp) // Approximate height for the green background
-                    .background(MaterialTheme.colorScheme.primary)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .background(Color(0xFFF5F5F5)) // Light gray background for the list
-            )
-        }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-        // Main Content
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Top Bar (Custom)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 48.dp, start = 16.dp, end = 16.dp), // Adjust for status bar
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack, // Changed to ArrowBack to match typical back behavior
-                        contentDescription = "Menu",
-                        tint = Color.White
-                    )
+    if (updateInfo != null) {
+        UpdateDialog(
+            info = updateInfo!!,
+            onDismiss = { viewModel.dismissUpdateDialog() },
+            onConfirm = {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo!!.downloadUrl))
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-                IconButton(onClick = { /* TODO: More options */ }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More",
-                        tint = Color.White
-                    )
-                }
+                viewModel.dismissUpdateDialog()
             }
+        )
+    }
 
-            // Title
-            Text(
-                text = "路线模拟",
-                color = Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Normal,
-                modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 24.dp)
-            )
-
-            // Target Route Card
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-            ) {
-                RouteCard(
-                    route = currentRoute,
-                    isTarget = true,
-                    settings = settings,
-                    onSettingsClick = { showSettingsDialog = true },
-                    onLoopToggle = { settings = settings.copy(isLoop = it) }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = drawerState.isOpen,
+        drawerContent = {
+            ModalDrawerSheet {
+                DrawerHeader(appVersion)
+                HorizontalDivider()
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_location_simulation)) },
+                    icon = { Icon(painterResource(R.drawable.ic_position), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_location_simulation) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_route_simulation)) },
+                    icon = { Icon(painterResource(R.drawable.ic_move), contentDescription = null) },
+                    selected = true,
+                    onClick = { scope.launch { drawerState.close() } }
                 )
                 
-                // FAB overlapping the card
-                FloatingActionButton(
-                    onClick = onAddRouteClick,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = (-16).dp, y = (-28).dp)
-                        .size(56.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
-                }
+                Text(
+                    text = stringResource(R.string.nav_menu_settings),
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_settings)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_settings), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_settings) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_dev)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_dev), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_dev) } }
+                )
+
+                Text(
+                    text = stringResource(R.string.nav_menu_more),
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_upgrade)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_upgrade), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); viewModel.checkUpdate(context) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_feedback)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_feedback), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_feedback) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_contact)) },
+                    icon = { Icon(painterResource(R.drawable.ic_contact), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_contact) } }
+                )
             }
-
-            // History Title
-            Text(
-                text = "历史路线",
-                color = Color.Gray,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 8.dp)
-            )
-
-            // History List
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("路线模拟") },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                        actionIconContentColor = Color.White
+                    )
+                )
+            }
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .background(Color(0xFFF5F5F5))
             ) {
-                items(historyRoutes) { route ->
-                    RouteCard(route = route, isTarget = false)
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Target Route Card
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 16.dp)
+                    ) {
+                        RouteCard(
+                            route = currentRoute,
+                            isTarget = true,
+                            settings = settings,
+                            onSettingsClick = { showSettingsDialog = true },
+                            onLoopToggle = { settings = settings.copy(isLoop = it) }
+                        )
+                        
+                        // FAB overlapping the card
+                        FloatingActionButton(
+                            onClick = onAddRouteClick,
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(y = (-24).dp)
+                                .size(48.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.White)
+                        }
+                    }
+
+                    // History Title
+                    Text(
+                        text = "历史路线",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
+                    )
+
+                    // History List
+                    LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(historyRoutes) { route ->
+                            RouteCard(route = route, isTarget = false)
+                        }
+                    }
                 }
             }
         }
+    }
 
-        // Settings Dialog
-        if (showSettingsDialog) {
-            SettingsDialog(
-                settings = settings,
-                onDismiss = { showSettingsDialog = false },
-                onSettingsChange = { settings = it }
-            )
-        }
+    // Settings Dialog
+    if (showSettingsDialog) {
+        SettingsDialog(
+            settings = settings,
+            onDismiss = { showSettingsDialog = false },
+            onSettingsChange = { settings = it }
+        )
     }
 }
 
@@ -424,3 +491,5 @@ fun getModeIcon(mode: TransportMode): Int {
         TransportMode.Plane -> R.drawable.ic_fly
     }
 }
+
+

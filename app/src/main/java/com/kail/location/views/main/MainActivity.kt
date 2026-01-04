@@ -46,6 +46,7 @@ import com.kail.location.utils.MapUtils
 import com.kail.location.utils.ShareUtils
 import com.kail.location.R
 import com.kail.location.viewmodels.MainViewModel
+import com.kail.location.views.locationsimulation.LocationSimulationActivity
 import io.noties.markwon.Markwon
 import okhttp3.*
 import org.json.JSONException
@@ -252,6 +253,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                     },
                     onNavigate = { id ->
                         when(id) {
+                            R.id.nav_location_simulation -> startActivity(Intent(this, LocationSimulationActivity::class.java))
                             R.id.nav_history -> startActivity(Intent(this, HistoryActivity::class.java))
                             R.id.nav_route_simulation -> startActivity(Intent(this, RouteSimulationActivity::class.java))
                             R.id.nav_settings -> startActivity(Intent(this, SettingsActivity::class.java))
@@ -535,7 +537,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
 
     private fun initMapLocation() {
         mBaiduMap?.isMyLocationEnabled = true
-        mLocClient = LocationClient(this)
+        mLocClient = LocationClient(applicationContext)
         mLocClient?.registerLocationListener(object : BDAbstractLocationListener() {
             override fun onReceiveLocation(location: BDLocation?) {
                 if (location == null || mBaiduMap == null) return

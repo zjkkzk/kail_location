@@ -1,205 +1,605 @@
 package com.kail.location.views.routesimulation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.text.BasicTextField
 import com.baidu.mapapi.map.MapView
+import com.baidu.mapapi.model.LatLng
+import com.baidu.mapapi.map.BaiduMap
+import com.baidu.mapapi.map.PolylineOptions
+import com.baidu.mapapi.map.MapStatusUpdateFactory
+import com.baidu.mapapi.map.MapStatus
+import com.baidu.mapapi.map.Overlay
+import com.elvishew.xlog.XLog
+import android.graphics.Color as AndroidColor
+import androidx.preference.PreferenceManager
+import com.kail.location.utils.MapUtils
 import com.kail.location.R
+import com.kail.location.views.common.DrawerHeader
+import kotlinx.coroutines.launch
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
+import com.baidu.mapapi.map.BitmapDescriptor
+import com.baidu.mapapi.map.BitmapDescriptorFactory
+import com.baidu.mapapi.map.MarkerOptions
+import android.content.Context
 
+private enum class MarkingPhase { Idle, Preview, Active }
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutePlanScreen(
     mapView: MapView?,
     onBackClick: () -> Unit,
-    onConfirmClick: () -> Unit = {}
+    onConfirmClick: () -> Unit = {},
+    onLocateClick: (() -> Unit)? = null,
+    currentLatLng: LatLng? = null,
+    onNavigate: (Int) -> Unit,
+    appVersion: String
 ) {
     var startPoint by remember { mutableStateOf("") }
     var endPoint by remember { mutableStateOf("") }
+    var selectingStart by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
+    var isSatellite by remember { mutableStateOf(false) }
+    val waypoints = remember { mutableStateListOf<LatLng>() }
+    var polylineOverlay by remember { mutableStateOf<Overlay?>(null) }
+    var dashedOverlay by remember { mutableStateOf<Overlay?>(null) }
+    var markingPhase by remember { mutableStateOf(MarkingPhase.Idle) }
+    var isDragging by remember { mutableStateOf(false) }
+    var currentAnchor by remember { mutableStateOf<LatLng?>(null) }
+    var hasCentered by remember { mutableStateOf(false) }
+    
+    // Marker state
+    val waypointMarkers = remember { mutableStateListOf<Overlay>() }
+    var currentMarkerOverlay by remember { mutableStateOf<Overlay?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 1. Map Layer (Bottom)
-        if (mapView != null) {
-            AndroidView(
-                factory = { mapView },
-                modifier = Modifier.fillMaxSize()
-            )
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var showMapTypeDialog by remember { mutableStateOf(false) }
+    var showLocationInputDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(mapView) {
+        try {
+            val map = mapView?.map
+            if (map != null) {
+                map.isMyLocationEnabled = true
+                XLog.i("RoutePlanScreen: Map initialized")
+                
+                map.setOnMapStatusChangeListener(object : BaiduMap.OnMapStatusChangeListener {
+                    override fun onMapStatusChangeStart(status: MapStatus) {
+                        if (markingPhase != MarkingPhase.Active) return
+                        isDragging = true
+                        val last = waypoints.lastOrNull() ?: currentAnchor ?: status.target
+                        val target = status.target
+                        dashedOverlay?.remove()
+                        val opt = PolylineOptions()
+                            .width(8)
+                            .color(AndroidColor.BLUE)
+                            .points(listOf(last, target))
+                        try {
+                            val method = PolylineOptions::class.java.getMethod("dottedLine", Boolean::class.javaPrimitiveType)
+                            method.invoke(opt, true)
+                        } catch (_: Exception) {}
+                        dashedOverlay = map.addOverlay(opt)
+                    }
+                    override fun onMapStatusChangeStart(status: MapStatus, reason: Int) {
+                        onMapStatusChangeStart(status)
+                    }
+
+                    override fun onMapStatusChange(status: MapStatus) {
+                        if (markingPhase != MarkingPhase.Active || !isDragging) return
+                        val last = waypoints.lastOrNull() ?: currentAnchor ?: status.target
+                        val target = status.target
+                        dashedOverlay?.remove()
+                        val opt = PolylineOptions()
+                            .width(8)
+                            .color(AndroidColor.BLUE)
+                            .points(listOf(last, target))
+                        try {
+                            val method = PolylineOptions::class.java.getMethod("dottedLine", Boolean::class.javaPrimitiveType)
+                            method.invoke(opt, true)
+                        } catch (_: Exception) {}
+                        dashedOverlay = map.addOverlay(opt)
+                    }
+
+                    override fun onMapStatusChangeFinish(status: MapStatus) {
+                        if (markingPhase != MarkingPhase.Active) return
+                        isDragging = false
+                        dashedOverlay?.remove()
+                        dashedOverlay = null
+                        val target = status.target
+                        val anchor = waypoints.lastOrNull() ?: currentAnchor ?: target
+                        
+                        if (waypoints.isEmpty() && anchor != target) {
+                             waypoints.add(anchor)
+                             if (selectingStart) {
+                                 startPoint = "${anchor.latitude},${anchor.longitude}"
+                                 selectingStart = false
+                             }
+                        }
+                        
+                        waypoints.add(target)
+                        polylineOverlay?.remove()
+                        if (waypoints.size >= 2) {
+                            val polyOpt = PolylineOptions().width(8).color(AndroidColor.BLUE).points(waypoints)
+                            polylineOverlay = map.addOverlay(polyOpt)
+                        }
+                        
+                        endPoint = "${target.latitude},${target.longitude}"
+                        currentAnchor = target
+                        XLog.i("RoutePlanScreen: Finalize waypoint ${waypoints.size} -> $target")
+                    }
+                })
+            } else {
+                XLog.e("RoutePlanScreen: MapView.map is null")
+            }
+        } catch (e: Exception) {
+            XLog.e("RoutePlanScreen: Map init error", e)
         }
+    }
 
-        // 2. Top Search Bar Layer
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primary)
-                .padding(top = 48.dp, bottom = 16.dp) // Adjust for status bar
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                // Back Button
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
+    LaunchedEffect(mapView, currentLatLng) {
+        try {
+            val map = mapView?.map
+            if (map != null) {
+                val ll = currentLatLng
+                if (!hasCentered && ll != null && !(ll.latitude == 0.0 && ll.longitude == 0.0)) {
+                    map.animateMapStatus(MapStatusUpdateFactory.newLatLng(ll))
+                    XLog.i("RoutePlanScreen: Center to current $ll")
+                    hasCentered = true
                 }
-
-                // Search Inputs
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 16.dp)
-                ) {
-                    // Start Point Input
-                    SearchInputRow(
-                        iconRes = R.drawable.ic_home_position, // Placeholder, need to check available icons
-                        hint = "搜索起点",
-                        value = startPoint,
-                        onValueChange = { startPoint = it }
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // End Point Input
-                    SearchInputRow(
-                        iconRes = R.drawable.ic_home_position, // Placeholder
-                        hint = "搜索终点",
-                        value = endPoint,
-                        onValueChange = { endPoint = it }
-                    )
+                
+                // Update Current Location Marker
+                if (ll != null) {
+                    currentMarkerOverlay?.remove()
+                    val option = MarkerOptions()
+                        .position(ll)
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_gcoding))
+                        .zIndex(9)
+                        .draggable(false)
+                    currentMarkerOverlay = map.addOverlay(option)
                 }
             }
+        } catch (e: Exception) {
+            XLog.e("RoutePlanScreen: Map center/marker error", e)
         }
+    }
 
-        // 3. Right Side Map Controls (Layers)
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 180.dp, end = 16.dp) // Below the top bar
-        ) {
-            SmallFloatingActionButton(
-                onClick = { /* TODO: Layers */ },
-                containerColor = Color.White,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Place, contentDescription = "Place")
-            }
-        }
-
-        // 4. Bottom Right Controls
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 32.dp, end = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Undo
-            SmallFloatingActionButton(
-                onClick = { /* TODO: Undo */ },
-                containerColor = Color.White,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = "Undo")
-            }
-
-            // Pinpoint (Custom icon usually)
-            SmallFloatingActionButton(
-                onClick = { /* TODO: Pinpoint */ },
-                containerColor = Color.White,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                 // Using a placeholder icon, maybe a map marker
-                 Icon(painter = painterResource(id = R.drawable.icon_gcoding), contentDescription = "Pin")
-            }
-
-            // Location
-            SmallFloatingActionButton(
-                onClick = { /* TODO: Locate */ },
-                containerColor = Color.White,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Filled.Home, contentDescription = "Locate")
-            }
-
-            // Confirm (Big Green Button)
-            FloatingActionButton(
-                onClick = onConfirmClick,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                shape = CircleShape,
-                modifier = Modifier.size(64.dp)
-            ) {
-                Icon(Icons.Filled.Check, contentDescription = "Confirm")
+    // Update Waypoint Markers
+    LaunchedEffect(mapView, waypoints.size, waypoints.toList()) {
+        val map = mapView?.map
+        if (map != null) {
+            // Clear old markers
+            waypointMarkers.forEach { it.remove() }
+            waypointMarkers.clear()
+            
+            // Add new markers
+            waypoints.forEachIndexed { index, latLng ->
+                // Use white for intermediate, red for start/end? Or just white/red dots as requested.
+                // Assuming Start/End = Red, Intermediate = White
+                val isStartOrEnd = index == 0 || index == waypoints.lastIndex
+                val color = if (isStartOrEnd) AndroidColor.RED else AndroidColor.WHITE
+                
+                val descriptor = bitmapDescriptorFromVector(context, R.drawable.ic_position, color)
+                if (descriptor != null) {
+                    val option = MarkerOptions()
+                        .position(latLng)
+                        .icon(descriptor)
+                        .zIndex(8)
+                        .draggable(false)
+                    waypointMarkers.add(map.addOverlay(option))
+                }
             }
         }
     }
+
+    if (showLocationInputDialog) {
+        LocationInputDialog(
+            onDismiss = { showLocationInputDialog = false },
+            onConfirm = { lat, lng, isBd09 ->
+                val target = if (isBd09) {
+                    LatLng(lat, lng)
+                } else {
+                    val wgs84 = MapUtils.wgs2bd09(lng, lat)
+                    LatLng(wgs84[1], wgs84[0])
+                }
+                mapView?.map?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
+                showLocationInputDialog = false
+            }
+        )
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = drawerState.isOpen,
+        drawerContent = {
+            ModalDrawerSheet {
+                DrawerHeader(appVersion)
+                HorizontalDivider()
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_location_simulation)) },
+                    icon = { Icon(painterResource(R.drawable.ic_position), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_location_simulation) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_route_simulation)) },
+                    icon = { Icon(painterResource(R.drawable.ic_move), contentDescription = null) },
+                    selected = true,
+                    onClick = { scope.launch { drawerState.close() } }
+                )
+                
+                Text(
+                    text = stringResource(R.string.nav_menu_settings),
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_settings)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_settings), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_settings) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_dev)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_dev), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_dev) } }
+                )
+
+                Text(
+                    text = stringResource(R.string.nav_menu_more),
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp),
+                    style = MaterialTheme.typography.labelSmall
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_upgrade)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_upgrade), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_update) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_feedback)) },
+                    icon = { Icon(painterResource(R.drawable.ic_menu_feedback), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_feedback) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_contact)) },
+                    icon = { Icon(painterResource(R.drawable.ic_contact), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_contact) } }
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.app_name)) },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                        actionIconContentColor = Color.White
+                    )
+                )
+            }
+        ) { paddingValues ->
+            Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+                if (mapView != null) {
+                    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                }
+
+                // Map Controls Overlay (Right Side)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 8.dp, end = 8.dp)
+                ) {
+                    MapControlButton(
+                        iconRes = R.drawable.ic_map,
+                        onClick = { showMapTypeDialog = true }
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp)
+                ) {
+                    MapControlButton(
+                        iconRes = R.drawable.ic_input,
+                        onClick = { showLocationInputDialog = true }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MapControlButton(
+                        iconRes = R.drawable.ic_home_position,
+                        onClick = { onLocateClick?.invoke() }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MapControlButton(
+                        iconRes = R.drawable.ic_zoom_in,
+                        onClick = { mapView?.map?.setMapStatus(MapStatusUpdateFactory.zoomIn()) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    MapControlButton(
+                        iconRes = R.drawable.ic_zoom_out,
+                        onClick = { mapView?.map?.setMapStatus(MapStatusUpdateFactory.zoomOut()) }
+                    )
+                }
+
+                // Route Plan Bottom Buttons
+                Column(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 32.dp, end = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SmallFloatingActionButton(onClick = {
+                        try {
+                            if (markingPhase == MarkingPhase.Active) {
+                                dashedOverlay?.remove()
+                                dashedOverlay = null
+                                isDragging = false
+                            }
+                            if (waypoints.isNotEmpty()) {
+                                waypoints.removeAt(waypoints.lastIndex)
+                                polylineOverlay?.remove()
+                                polylineOverlay = null
+                                val map = mapView?.map
+                                if (map != null && waypoints.size >= 2) {
+                                    val polyOpt = PolylineOptions().width(8).color(AndroidColor.BLUE).points(waypoints)
+                                    polylineOverlay = map.addOverlay(polyOpt)
+                                }
+                                if (waypoints.isNotEmpty()) {
+                                    val last = waypoints.last()
+                                    endPoint = "${last.latitude},${last.longitude}"
+                                    currentAnchor = last
+                                } else {
+                                    startPoint = ""
+                                    endPoint = ""
+                                    selectingStart = true
+                                    currentAnchor = null
+                                }
+                            }
+                            XLog.i("RoutePlanScreen: Undo last waypoint, now size=${waypoints.size}")
+                        } catch (e: Exception) {
+                            XLog.e("RoutePlanScreen: Undo error", e)
+                        }
+                    },
+                    modifier = Modifier.alpha(if (waypoints.isNotEmpty()) 1f else 0f),
+                    containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary) {
+                        Icon(painter = painterResource(id = R.drawable.ic_left), contentDescription = null)
+                    }
+                    SmallFloatingActionButton(
+                        onClick = {
+                            try {
+                                val map = mapView?.map
+                                val center = map?.mapStatus?.target
+                                when (markingPhase) {
+                                    MarkingPhase.Idle -> {
+                                        currentAnchor = center
+                                        markingPhase = MarkingPhase.Preview
+                                    }
+                                    MarkingPhase.Preview -> {
+                                        currentAnchor = center
+                                        if (center != null && waypoints.isEmpty()) {
+                                            waypoints.add(center)
+                                            startPoint = "${center.latitude},${center.longitude}"
+                                            selectingStart = false
+                                        }
+                                        markingPhase = MarkingPhase.Active
+                                    }
+                                    MarkingPhase.Active -> {
+                                        dashedOverlay?.remove()
+                                        dashedOverlay = null
+                                        isDragging = false
+                                        currentAnchor = null
+                                        markingPhase = MarkingPhase.Idle
+                                    }
+                                }
+                                XLog.i("RoutePlanScreen: Marking phase ${markingPhase}")
+                            } catch (e: Exception) {
+                                XLog.e("RoutePlanScreen: Toggle mark mode error", e)
+                            }
+                        },
+                        containerColor = Color.White,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(painter = painterResource(id = R.drawable.icon_gcoding), contentDescription = null)
+                    }
+                    SmallFloatingActionButton(onClick = {
+                        try {
+                            onLocateClick?.invoke()
+                            XLog.i("RoutePlanScreen: Locate clicked")
+                        } catch (e: Exception) {
+                            XLog.e("RoutePlanScreen: Locate error", e)
+                        }
+                    }, containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary) {
+                        Icon(painter = painterResource(id = R.drawable.ic_position), contentDescription = null)
+                    }
+                    FloatingActionButton(
+                        onClick = {
+                            try {
+                                if (waypoints.size >= 2) {
+                                    val wgsPoints = ArrayList<Double>(waypoints.size * 2)
+                                    waypoints.forEach { p ->
+                                        val wgs = MapUtils.bd2wgs(p.longitude, p.latitude)
+                                        wgsPoints.add(wgs[0])
+                                        wgsPoints.add(wgs[1])
+                                    }
+                                    saveRoute(prefs, wgsPoints)
+                                    XLog.i("RoutePlanScreen: Saved route with ${waypoints.size} points")
+                                }
+                                onConfirmClick()
+                            } catch (e: Exception) {
+                                XLog.e("RoutePlanScreen: Save route error", e)
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ) {
+                        Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color.White)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showMapTypeDialog) {
+        AlertDialog(
+            onDismissRequest = { showMapTypeDialog = false },
+            title = { Text("选择地图类型") },
+            text = {
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { 
+                            mapView?.map?.mapType = BaiduMap.MAP_TYPE_NORMAL
+                            showMapTypeDialog = false 
+                        }
+                    ) {
+                        RadioButton(selected = mapView?.map?.mapType == BaiduMap.MAP_TYPE_NORMAL, onClick = { 
+                            mapView?.map?.mapType = BaiduMap.MAP_TYPE_NORMAL
+                            showMapTypeDialog = false 
+                        })
+                        Text("普通地图")
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().clickable { 
+                            mapView?.map?.mapType = BaiduMap.MAP_TYPE_SATELLITE
+                            showMapTypeDialog = false 
+                        }
+                    ) {
+                        RadioButton(selected = mapView?.map?.mapType == BaiduMap.MAP_TYPE_SATELLITE, onClick = { 
+                            mapView?.map?.mapType = BaiduMap.MAP_TYPE_SATELLITE
+                            showMapTypeDialog = false 
+                        })
+                        Text("卫星地图")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMapTypeDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
+fun bitmapDescriptorFromVector(context: Context, vectorResId: Int, tint: Int? = null): BitmapDescriptor? {
+    val vectorDrawable = ContextCompat.getDrawable(context, vectorResId) ?: return null
+    vectorDrawable.setBounds(0, 0, vectorDrawable.intrinsicWidth, vectorDrawable.intrinsicHeight)
+    if (tint != null) {
+        DrawableCompat.setTint(vectorDrawable, tint)
+    }
+    val bitmap = Bitmap.createBitmap(vectorDrawable.intrinsicWidth, vectorDrawable.intrinsicHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    vectorDrawable.draw(canvas)
+    return BitmapDescriptorFactory.fromBitmap(bitmap)
 }
 
 @Composable
-fun SearchInputRow(
-    iconRes: Int,
-    hint: String,
-    value: String,
-    onValueChange: (String) -> Unit
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            //.background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+fun MapControlButton(iconRes: Int, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = Color.White.copy(alpha = 0.9f),
+        shadowElevation = 4.dp,
+        modifier = Modifier.size(48.dp)
     ) {
-        // Icon
-        Icon(
-            painter = painterResource(id = iconRes),
-            contentDescription = null,
-            tint = Color.White,
-            modifier = Modifier.size(20.dp).padding(start = 8.dp)
-        )
-        
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Text Field
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
-            decorationBox = { innerTextField ->
-                Box(contentAlignment = Alignment.CenterStart) {
-                    if (value.isEmpty()) {
-                        Text(
-                            text = hint,
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                    innerTextField()
-                }
-            },
-            modifier = Modifier.weight(1f)
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
-// Helper for BasicTextField (Material3 TextField is too heavy for this custom look)
+fun saveRoute(prefs: android.content.SharedPreferences, points: List<Double>) {
+    val sb = StringBuilder()
+    for (i in points.indices) {
+        sb.append(points[i])
+        if (i < points.size - 1) sb.append(",")
+    }
+    prefs.edit().putString("route_data", sb.toString()).apply()
+}
+
+@Composable
+fun LocationInputDialog(onDismiss: () -> Unit, onConfirm: (Double, Double, Boolean) -> Unit) {
+    var latStr by remember { mutableStateOf("") }
+    var lngStr by remember { mutableStateOf("") }
+    var isBd09 by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("输入坐标") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = latStr,
+                    onValueChange = { latStr = it },
+                    label = { Text("纬度") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = lngStr,
+                    onValueChange = { lngStr = it },
+                    label = { Text("经度") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isBd09, onCheckedChange = { isBd09 = it })
+                    Text("BD09坐标 (默认WGS84)")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val lat = latStr.toDoubleOrNull()
+                val lng = lngStr.toDoubleOrNull()
+                if (lat != null && lng != null) {
+                    onConfirm(lat, lng, isBd09)
+                }
+            }) {
+                Text("确定")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}

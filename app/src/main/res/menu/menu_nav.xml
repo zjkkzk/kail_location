@@ -5,6 +5,10 @@
 
     <group>
         <item
+            android:id="@+id/nav_location_simulation"
+            android:icon="@drawable/ic_position"
+            android:title="@string/nav_menu_location_simulation" />
+        <item
             android:id="@+id/nav_history"
             android:icon="@drawable/ic_menu_history"
             android:title="@string/nav_menu_history" />

@@ -47,6 +47,9 @@ class ServiceGo : Service() {
     private lateinit var mJoyStick: JoyStick
 
     private val mBinder = ServiceGoBinder()
+    private var mRoutePoints: MutableList<Pair<Double, Double>> = mutableListOf()
+    private var mRouteIndex = 0
+    private var mRouteLoop = false
 
     companion object {
         const val DEFAULT_LAT = 36.667662
@@ -63,6 +66,8 @@ class ServiceGo : Service() {
         private const val SERVICE_GO_NOTE_ACTION_JOYSTICK_HIDE = "HideJoyStick"
         private const val SERVICE_GO_NOTE_CHANNEL_ID = "SERVICE_GO_NOTE"
         private const val SERVICE_GO_NOTE_CHANNEL_NAME = "SERVICE_GO_NOTE"
+        const val EXTRA_ROUTE_POINTS = "EXTRA_ROUTE_POINTS"
+        const val EXTRA_ROUTE_LOOP = "EXTRA_ROUTE_LOOP"
     }
 
     override fun onBind(intent: Intent): IBinder {
@@ -138,6 +143,17 @@ class ServiceGo : Service() {
             mCurLng = intent.getDoubleExtra(MainActivity.LNG_MSG_ID, DEFAULT_LNG)
             mCurLat = intent.getDoubleExtra(MainActivity.LAT_MSG_ID, DEFAULT_LAT)
             mCurAlt = intent.getDoubleExtra(MainActivity.ALT_MSG_ID, DEFAULT_ALT)
+            val routeArray = intent.getDoubleArrayExtra(EXTRA_ROUTE_POINTS)
+            if (routeArray != null && routeArray.size >= 2) {
+                mRoutePoints.clear()
+                var i = 0
+                while (i + 1 < routeArray.size) {
+                    mRoutePoints.add(Pair(routeArray[i], routeArray[i + 1]))
+                    i += 2
+                }
+                mRouteIndex = 0
+                mRouteLoop = intent.getBooleanExtra(EXTRA_ROUTE_LOOP, false)
+            }
             
             XLog.i("ServiceGo: onStartCommand received lat=$mCurLat, lng=$mCurLng")
 
@@ -289,6 +305,20 @@ class ServiceGo : Service() {
                     Thread.sleep(100)
 
                     if (!isStop) {
+                        if (mRoutePoints.isNotEmpty()) {
+                            val p = mRoutePoints[mRouteIndex]
+                            mCurLng = p.first
+                            mCurLat = p.second
+                            mRouteIndex++
+                            if (mRouteIndex >= mRoutePoints.size) {
+                                if (mRouteLoop) {
+                                    mRouteIndex = 0
+                                } else {
+                                    mRoutePoints.clear()
+                                    mRouteIndex = 0
+                                }
+                            }
+                        }
                         setLocationNetwork()
                         setLocationGPS()
 

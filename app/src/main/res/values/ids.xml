@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="nav_location_simulation" type="id"/>
+    <item name="nav_route_simulation" type="id"/>
+    <item name="nav_settings" type="id"/>
+    <item name="nav_dev" type="id"/>
+    <item name="nav_update" type="id"/>
+    <item name="nav_feedback" type="id"/>
+    <item name="nav_contact" type="id"/>
+</resources>

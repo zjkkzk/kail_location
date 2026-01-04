@@ -1,7 +1,7 @@
 package com.kail.location.views.welcome
 
 import com.kail.location.views.base.BaseActivity
-import com.kail.location.views.main.MainActivity
+import com.kail.location.views.locationsimulation.LocationSimulationActivity
 
 import android.Manifest
 import android.content.Intent
@@ -140,7 +140,7 @@ class WelcomeActivity : AppCompatActivity() {
     private fun showPermissionSettingsDialog() {
         android.app.AlertDialog.Builder(this)
             .setTitle(R.string.app_name)
-            .setMessage("GoGoGo需要位置权限才能运行。\n请点击“去设置”手动开启位置权限。")
+            .setMessage("KailLocationo需要位置权限才能运行。\n请点击“去设置”手动开启位置权限。")
             .setPositiveButton("去设置") { _, _ ->
                 try {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -209,7 +209,7 @@ class WelcomeActivity : AppCompatActivity() {
         checkDefaultPermissions()
 
         if (isPermission) {
-            val intent = Intent(this@WelcomeActivity, MainActivity::class.java)
+            val intent = Intent(this@WelcomeActivity, LocationSimulationActivity::class.java)
             startActivity(intent)
             this@WelcomeActivity.finish()
         }
