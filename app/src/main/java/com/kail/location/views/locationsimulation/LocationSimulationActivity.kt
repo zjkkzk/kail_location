@@ -58,12 +58,26 @@ class LocationSimulationActivity : BaseActivity() {
                             R.id.nav_settings -> {
                                 startActivity(Intent(this, SettingsActivity::class.java))
                             }
+                            R.id.nav_sponsor -> {
+                                startActivity(Intent(this, com.kail.location.views.sponsor.SponsorActivity::class.java))
+                            }
                             R.id.nav_dev -> {
                                 try {
                                     val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
                                     startActivity(intent)
                                 } catch (e: Exception) {
                                     Toast.makeText(this, "无法打开开发者选项", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            R.id.nav_contact -> {
+                                try {
+                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = android.net.Uri.parse("mailto:kailkali23143@gmail.com")
+                                        putExtra(Intent.EXTRA_SUBJECT, "联系作者")
+                                    }
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(this, "无法打开邮件应用", Toast.LENGTH_SHORT).show()
                                 }
                             }
                             // Add other navigation cases as needed
@@ -91,6 +105,7 @@ class LocationSimulationActivity : BaseActivity() {
                             intent.putExtra(MainActivity.LAT_MSG_ID, info.latitude)
                             intent.putExtra(MainActivity.ALT_MSG_ID, 55.0)
                             intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, viewModel.isJoystickEnabled.value)
+                            intent.putExtra(ServiceGo.EXTRA_COORD_TYPE, ServiceGo.COORD_BD09)
                             ContextCompat.startForegroundService(this@LocationSimulationActivity, intent)
                         } else {
                             stopService(Intent(this@LocationSimulationActivity, ServiceGo::class.java))

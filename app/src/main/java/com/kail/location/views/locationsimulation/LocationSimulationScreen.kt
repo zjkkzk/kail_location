@@ -32,6 +32,11 @@ import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import android.net.Uri
 import com.kail.location.views.common.UpdateDialog
+import com.kail.location.models.HistoryRecord
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 
 /**
  * 位置模拟主界面组合项。
@@ -62,6 +67,9 @@ fun LocationSimulationScreen(
     val isSimulating = viewModel.isSimulating.collectAsState(initial = false).value
     val isJoystickEnabled = viewModel.isJoystickEnabled.collectAsState(initial = false).value
     val updateInfo by viewModel.updateInfo.collectAsState()
+    val historyRecords by viewModel.historyRecords.collectAsState()
+    var renameTarget by remember { mutableStateOf<HistoryRecord?>(null) }
+    var renameText by remember { mutableStateOf("") }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -172,6 +180,17 @@ fun LocationSimulationScreen(
                     },
                     selected = false,
                     onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_contact) } }
+                )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_sponsor)) },
+                    icon = {
+                        Icon(
+                            painterResource(R.drawable.ic_user),
+                            contentDescription = null
+                        )
+                    },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_sponsor) } }
                 )
             }
         }
@@ -319,26 +338,61 @@ fun LocationSimulationScreen(
                     }
                 }
 
-                // History List (Empty State)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_history), // Use history icon
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = Color.LightGray
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = stringResource(R.string.loc_sim_add_tips),
-                            color = Color.Gray,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                if (historyRecords.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_history),
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = Color.LightGray
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = stringResource(R.string.loc_sim_add_tips),
+                                color = Color.Gray,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(historyRecords) { record ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().clickable { viewModel.selectRecord(record) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = record.name, fontSize = 16.sp, color = Color.Black)
+                                        Text(text = record.displayTime, fontSize = 12.sp, color = Color.Gray)
+                                    }
+                                    Row {
+                                        IconButton(onClick = { renameTarget = record; renameText = record.name }) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Rename", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(onClick = { viewModel.deleteRecord(record.id) }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -354,5 +408,21 @@ fun LocationSimulationScreen(
                 )
             }
         }
+    }
+
+    if (renameTarget != null) {
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("重命名位置") },
+            text = {
+                OutlinedTextField(value = renameText, onValueChange = { renameText = it })
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.renameRecord(renameTarget!!.id, renameText); renameTarget = null }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) { Text("取消") }
+            }
+        )
     }
 }

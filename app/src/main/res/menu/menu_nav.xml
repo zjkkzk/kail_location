@@ -47,6 +47,10 @@
                 android:id="@+id/nav_contact"
                 android:icon="@drawable/ic_contact"
                 android:title="@string/nav_menu_contact" />
+            <item
+                android:id="@+id/nav_sponsor"
+                android:icon="@drawable/ic_user"
+                android:title="@string/nav_menu_sponsor" />
         </menu>
     </item>
 

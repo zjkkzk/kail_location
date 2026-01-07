@@ -323,6 +323,12 @@ fun RoutePlanScreen(
                     selected = false,
                     onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_contact) } }
                 )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_sponsor)) },
+                    icon = { Icon(painterResource(R.drawable.ic_user), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_sponsor) } }
+                )
             }
         }
     ) {

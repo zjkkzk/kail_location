@@ -5,8 +5,8 @@
     <string name="history_title">历史记录</string>
     <string name="history_search_hint">搜索历史记录</string>
     <string name="history_no_record">暂无历史记录</string>
-    <string name="app_author">ZCShou</string>
-    <string name="app_email">zcsexp@gmail.com</string>
+    <string name="app_author">kail</string>
+    <string name="app_email">kailkali23143@gmail.com</string>
     <string name="app_statement">仅供学习使用，否则后果自负！</string>
     <string name="app_service_tips">KailLocation服务正在运行中</string>
     <string name="app_agreement">用户协议</string>
@@ -125,8 +125,11 @@
     <string name="nav_menu_more">更多</string>
     <string name="nav_menu_upgrade">检测更新</string>
     <string name="nav_menu_feedback">问题反馈</string>
-    <string name="nav_menu_contact">联系作者</string>
+    <string name="nav_menu_contact">联系作者：kailkali23143@gmail.com</string>
     <string name="nav_app_tips">仅供学习使用，否则后果自负!</string>
+    <string name="nav_menu_sponsor">赞助作者</string>
+    <string name="sponsor_title">赞助作者</string>
+    <string name="sponsor_tron_note">仅支持 TRON 资产收款</string>
 
     <!-- 主界面 -->
     <string name="label_longitude">经度</string>

@@ -266,12 +266,24 @@ class MainActivity : BaseActivity(), SensorEventListener {
                             R.id.nav_history -> startActivity(Intent(this, HistoryActivity::class.java))
                             R.id.nav_route_simulation -> startActivity(Intent(this, RouteSimulationActivity::class.java))
                             R.id.nav_settings -> startActivity(Intent(this, SettingsActivity::class.java))
+                            R.id.nav_sponsor -> startActivity(Intent(this, com.kail.location.views.sponsor.SponsorActivity::class.java))
                             R.id.nav_dev -> {
                                 try {
                                     val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
                                     startActivity(intent)
                                 } catch (e: Exception) {
                                     Toast.makeText(this, "无法打开开发者选项", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            R.id.nav_contact -> {
+                                try {
+                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = android.net.Uri.parse("mailto:kailkali23143@gmail.com")
+                                        putExtra(Intent.EXTRA_SUBJECT, "联系作者")
+                                    }
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(this, "无法打开邮件应用", Toast.LENGTH_SHORT).show()
                                 }
                             }
                             R.id.nav_update -> checkUpdate(false)
@@ -661,11 +673,11 @@ class MainActivity : BaseActivity(), SensorEventListener {
         } else {
             XLog.i("Starting Mock Service...")
             val intent = Intent(this, ServiceGo::class.java)
-            // 传递坐标信息 (Convert BD09 to WGS84 for ServiceGo/MockLocation)
-            val wgs84 = MapUtils.bd2wgs(mMarkLatLngMap.longitude, mMarkLatLngMap.latitude)
-            intent.putExtra(LAT_MSG_ID, wgs84[1])
-            intent.putExtra(LNG_MSG_ID, wgs84[0])
-            XLog.i("Putting extras: lat=${wgs84[1]}, lng=${wgs84[0]}")
+            // 传递坐标信息（保持 BD-09，并指明坐标类型）
+            intent.putExtra(LAT_MSG_ID, mMarkLatLngMap.latitude)
+            intent.putExtra(LNG_MSG_ID, mMarkLatLngMap.longitude)
+            intent.putExtra(ServiceGo.EXTRA_COORD_TYPE, ServiceGo.COORD_BD09)
+            XLog.i("Putting extras: lat=${mMarkLatLngMap.latitude}, lng=${mMarkLatLngMap.longitude}, type=BD09")
 
             // 8.0 之后需要 startForegroundService
             if (Build.VERSION.SDK_INT >= 26) {

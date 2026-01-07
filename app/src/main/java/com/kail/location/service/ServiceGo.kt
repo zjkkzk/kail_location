@@ -22,9 +22,9 @@ import com.kail.location.views.main.MainActivity
 import com.kail.location.R
 import com.kail.location.utils.GoUtils
 import com.kail.location.views.joystick.JoyStick
-import com.kail.location.views.joystick.JoyStickOverlay
 import kotlin.math.abs
 import kotlin.math.cos
+import com.kail.location.utils.MapUtils
 
 /**
  * 前台定位模拟服务。
@@ -75,6 +75,10 @@ class ServiceGo : Service() {
         const val EXTRA_ROUTE_LOOP = "EXTRA_ROUTE_LOOP"
         const val EXTRA_JOYSTICK_ENABLED = "EXTRA_JOYSTICK_ENABLED"
         const val EXTRA_ROUTE_SPEED = "EXTRA_ROUTE_SPEED"
+        const val EXTRA_COORD_TYPE = "EXTRA_COORD_TYPE"
+        const val COORD_WGS84 = "WGS84"
+        const val COORD_BD09 = "BD09"
+        const val COORD_GCJ02 = "GCJ02"
     }
 
     /**
@@ -166,8 +170,24 @@ class ServiceGo : Service() {
         }
 
         if (intent != null) {
+            val coordType = intent.getStringExtra(EXTRA_COORD_TYPE) ?: COORD_BD09
             mCurLng = intent.getDoubleExtra(MainActivity.LNG_MSG_ID, DEFAULT_LNG)
             mCurLat = intent.getDoubleExtra(MainActivity.LAT_MSG_ID, DEFAULT_LAT)
+            try {
+                when (coordType) {
+                    COORD_WGS84 -> { /* keep */ }
+                    COORD_GCJ02 -> {
+                        val wgs = MapUtils.gcj02towgs84(mCurLng, mCurLat)
+                        mCurLng = wgs[0]
+                        mCurLat = wgs[1]
+                    }
+                    else -> {
+                        val wgs = MapUtils.bd2wgs(mCurLng, mCurLat)
+                        mCurLng = wgs[0]
+                        mCurLat = wgs[1]
+                    }
+                }
+            } catch (_: Exception) {}
             mCurAlt = intent.getDoubleExtra(MainActivity.ALT_MSG_ID, DEFAULT_ALT)
             val joystickEnabled = intent.getBooleanExtra(EXTRA_JOYSTICK_ENABLED, true)
             mSpeed = intent.getFloatExtra(EXTRA_ROUTE_SPEED, mSpeed.toFloat()).toDouble() / 3.6
@@ -176,7 +196,19 @@ class ServiceGo : Service() {
                 mRoutePoints.clear()
                 var i = 0
                 while (i + 1 < routeArray.size) {
-                    mRoutePoints.add(Pair(routeArray[i], routeArray[i + 1]))
+                    val bdLng = routeArray[i]
+                    val bdLat = routeArray[i + 1]
+                    when (coordType) {
+                        COORD_WGS84 -> mRoutePoints.add(Pair(bdLng, bdLat))
+                        COORD_GCJ02 -> {
+                            val wgs = MapUtils.gcj02towgs84(bdLng, bdLat)
+                            mRoutePoints.add(Pair(wgs[0], wgs[1]))
+                        }
+                        else -> {
+                            val wgs = MapUtils.bd2wgs(bdLng, bdLat)
+                            mRoutePoints.add(Pair(wgs[0], wgs[1]))
+                        }
+                    }
                     i += 2
                 }
                 mRouteIndex = 0
@@ -398,8 +430,9 @@ class ServiceGo : Service() {
             }
             val a = mRoutePoints[startIdx]
             val b = mRoutePoints[endIdx]
+            val midLat = (a.second + b.second) / 2.0
             val metersPerDegLat = 110.574 * 1000.0
-            val metersPerDegLng = 111.320 * 1000.0 * kotlin.math.cos(kotlin.math.abs(mCurLat) * Math.PI / 180.0)
+            val metersPerDegLng = 111.320 * 1000.0 * kotlin.math.cos(kotlin.math.abs(midLat) * Math.PI / 180.0)
             val dLatDeg = b.second - a.second
             val dLngDeg = b.first - a.first
             val segLenMeters = kotlin.math.sqrt((dLatDeg * metersPerDegLat) * (dLatDeg * metersPerDegLat) + (dLngDeg * metersPerDegLng) * (dLngDeg * metersPerDegLng))

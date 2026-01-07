@@ -11,6 +11,13 @@ import com.kail.location.utils.UpdateChecker
 import android.content.Context
 import android.widget.Toast
 import kotlinx.coroutines.flow.update
+import com.kail.location.models.HistoryRecord
+import com.kail.location.repositories.DataBaseHistoryLocation
+import androidx.preference.PreferenceManager
+import android.database.sqlite.SQLiteDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
 
 /**
  * 位置模拟页面的 ViewModel。
@@ -19,6 +26,8 @@ import kotlinx.coroutines.flow.update
  * @property application 应用上下文。
  */
 class LocationSimulationViewModel(application: Application) : AndroidViewModel(application) {
+    private val dbHelper = DataBaseHistoryLocation(application)
+    private var db: SQLiteDatabase? = null
 
     /**
      * 当前位置信息的数据结构。
@@ -53,6 +62,19 @@ class LocationSimulationViewModel(application: Application) : AndroidViewModel(a
      * 应用更新信息的状态流（若存在）。
      */
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
+
+    private val _historyRecords = MutableStateFlow<List<HistoryRecord>>(emptyList())
+    val historyRecords: StateFlow<List<HistoryRecord>> = _historyRecords.asStateFlow()
+
+    private val _selectedRecordId = MutableStateFlow<Int?>(null)
+    val selectedRecordId: StateFlow<Int?> = _selectedRecordId.asStateFlow()
+
+    init {
+        try {
+            db = dbHelper.writableDatabase
+            loadRecords()
+        } catch (_: Exception) {}
+    }
 
     /**
      * 切换模拟状态。
@@ -101,5 +123,77 @@ class LocationSimulationViewModel(application: Application) : AndroidViewModel(a
      */
     fun dismissUpdateDialog() {
         _updateInfo.value = null
+    }
+
+    fun loadRecords() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = mutableListOf<HistoryRecord>()
+            val database = db
+            if (database != null) {
+                try {
+                    val cursor = database.query(
+                        DataBaseHistoryLocation.TABLE_NAME, null,
+                        DataBaseHistoryLocation.DB_COLUMN_ID + " > ?", arrayOf("0"),
+                        null, null, DataBaseHistoryLocation.DB_COLUMN_TIMESTAMP + " DESC", null
+                    )
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getInt(0)
+                        val location = cursor.getString(1)
+                        val longitude = cursor.getString(2)
+                        val latitude = cursor.getString(3)
+                        val timeStamp = cursor.getInt(4).toLong()
+                        val bd09Longitude = cursor.getString(5)
+                        val bd09Latitude = cursor.getString(6)
+                        list.add(
+                            HistoryRecord(
+                                id = id,
+                                name = location,
+                                longitudeWgs84 = longitude,
+                                latitudeWgs84 = latitude,
+                                timestamp = timeStamp,
+                                longitudeBd09 = bd09Longitude,
+                                latitudeBd09 = bd09Latitude,
+                                displayTime = com.kail.location.utils.GoUtils.timeStamp2Date(timeStamp.toString()),
+                                displayWgs84 = "",
+                                displayBd09 = ""
+                            )
+                        )
+                    }
+                    cursor.close()
+                } catch (_: Exception) {}
+            }
+            _historyRecords.value = list
+        }
+    }
+
+    fun selectRecord(record: HistoryRecord) {
+        _selectedRecordId.value = record.id
+        _locationInfo.value = _locationInfo.value.copy(
+            name = record.name,
+            address = record.name,
+            latitude = record.latitudeBd09.toDoubleOrNull() ?: 0.0,
+            longitude = record.longitudeBd09.toDoubleOrNull() ?: 0.0
+        )
+    }
+
+    fun renameRecord(id: Int, newName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                db?.let { DataBaseHistoryLocation.updateHistoryLocation(it, id.toString(), newName) }
+            } catch (_: Exception) {}
+            loadRecords()
+        }
+    }
+
+    fun deleteRecord(id: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                db?.delete(DataBaseHistoryLocation.TABLE_NAME, DataBaseHistoryLocation.DB_COLUMN_ID + " = ?", arrayOf(id.toString()))
+            } catch (_: Exception) {}
+            loadRecords()
+            if (_selectedRecordId.value == id) {
+                _selectedRecordId.value = null
+            }
+        }
     }
 }

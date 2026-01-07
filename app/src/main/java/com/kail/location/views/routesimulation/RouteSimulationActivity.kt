@@ -81,6 +81,20 @@ class RouteSimulationActivity : BaseActivity() {
                         R.id.nav_settings -> {
                             startActivity(Intent(this@RouteSimulationActivity, SettingsActivity::class.java))
                         }
+                        R.id.nav_sponsor -> {
+                            startActivity(Intent(this@RouteSimulationActivity, com.kail.location.views.sponsor.SponsorActivity::class.java))
+                        }
+                        R.id.nav_contact -> {
+                            try {
+                                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                    data = android.net.Uri.parse("mailto:kailkali23143@gmail.com")
+                                    putExtra(Intent.EXTRA_SUBJECT, "联系作者")
+                                }
+                                startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(this@RouteSimulationActivity, "无法打开邮件应用", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                         R.id.nav_dev -> {
                             try {
                                 val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
@@ -104,13 +118,14 @@ class RouteSimulationActivity : BaseActivity() {
                             appVersion = version,
                             onStartSimulation = { settings ->
                                 try {
-                                    val points = viewModel.getLatestRoutePoints()
+                                    val points = viewModel.getSelectedRoutePoints()
                                     if (points != null && points.size >= 4) {
                                         val intent = Intent(this@RouteSimulationActivity, ServiceGo::class.java)
                                         intent.putExtra(ServiceGo.EXTRA_ROUTE_POINTS, points)
-                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_LOOP, settings.isLoop)
+                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_LOOP, viewModel.settings.value.isLoop)
                                         intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, false)
-                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_SPEED, settings.speed)
+                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_SPEED, viewModel.settings.value.speed)
+                                        intent.putExtra(ServiceGo.EXTRA_COORD_TYPE, ServiceGo.COORD_BD09)
                                         ContextCompat.startForegroundService(this@RouteSimulationActivity, intent)
                                         viewModel.setSimulating(true)
                                     } else {

@@ -58,11 +58,14 @@ fun RouteSimulationScreen(
 ) {
     // State
     val context = LocalContext.current
-    var settings by remember { mutableStateOf(SimulationSettings()) }
+    val settings by viewModel.settings.collectAsState()
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<RouteInfo?>(null) }
+    var renameText by remember { mutableStateOf("") }
     
     val historyRoutes by viewModel.historyRoutes.collectAsState()
-    val currentRoute = historyRoutes.firstOrNull() ?: RouteInfo("-", "暂无", "暂无", "")
+    val selectedId by viewModel.selectedRouteId.collectAsState()
+    val currentRoute = historyRoutes.firstOrNull { it.id == selectedId } ?: historyRoutes.firstOrNull() ?: RouteInfo("-", "暂无", "暂无", "")
     val updateInfo by viewModel.updateInfo.collectAsState()
     val isSimulating by viewModel.isSimulating.collectAsState()
 
@@ -146,6 +149,12 @@ fun RouteSimulationScreen(
                     selected = false,
                     onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_contact) } }
                 )
+                NavigationDrawerItem(
+                    label = { Text(stringResource(R.string.nav_menu_sponsor)) },
+                    icon = { Icon(painterResource(R.drawable.ic_user), contentDescription = null) },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_sponsor) } }
+                )
             }
         }
     ) {
@@ -190,7 +199,7 @@ fun RouteSimulationScreen(
                             isTarget = true,
                             settings = settings,
                             onSettingsClick = { showSettingsDialog = true },
-                            onLoopToggle = { settings = settings.copy(isLoop = it) },
+                            onLoopToggle = { viewModel.updateLoop(it) },
                             onStartSimulation = onStartSimulation,
                             isSimulating = isSimulating,
                             onStopSimulation = onStopSimulation
@@ -225,7 +234,31 @@ fun RouteSimulationScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(historyRoutes) { route ->
-                            RouteCard(route = route, isTarget = false)
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().clickable { viewModel.selectRoute(route.id) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = route.startName, fontSize = 16.sp, color = Color.Black)
+                                        Text(text = route.endName, fontSize = 14.sp, color = Color.Gray)
+                                    }
+                                    Row {
+                                        IconButton(onClick = { renameTarget = route; renameText = route.startName }) {
+                                            Icon(Icons.Default.Edit, contentDescription = "Rename", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                        IconButton(onClick = { viewModel.deleteRoute(route.id) }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -238,7 +271,23 @@ fun RouteSimulationScreen(
         SettingsDialog(
             settings = settings,
             onDismiss = { showSettingsDialog = false },
-            onSettingsChange = { settings = it }
+            onSettingsChange = { viewModel.updateSpeed(it.speed); if (settings.isLoop != it.isLoop) viewModel.updateLoop(it.isLoop) }
+        )
+    }
+
+    if (renameTarget != null) {
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("重命名路线") },
+            text = {
+                OutlinedTextField(value = renameText, onValueChange = { renameText = it })
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.renameRoute(renameTarget!!.id, renameText); renameTarget = null }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) { Text("取消") }
+            }
         )
     }
 }
@@ -437,7 +486,7 @@ fun SettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("运动速度", fontSize = 14.sp, color = Color.Black)
-                    Text("${settings.speed} m/s", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+    Text("${settings.speed} km/h", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 }
 
                 // Speed Slider
@@ -490,35 +539,7 @@ fun SettingsDialog(
                     )
                 }
 
-                // Step Frequency Simulation
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("步频模拟", fontSize = 14.sp, color = Color.Black)
-                    Switch(
-                        checked = settings.stepFreqSimulation,
-                        onCheckedChange = { onSettingsChange(settings.copy(stepFreqSimulation = it)) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.scale(0.8f)
-                    )
-                }
-
-                // Step Frequency Value
-                if (settings.stepFreqSimulation) {
-                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("步频", fontSize = 14.sp, color = Color.Black)
-                        Text("${settings.stepFreq} 步/s", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
+                // 移除步频相关UI
             }
         }
     }
