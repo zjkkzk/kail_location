@@ -467,7 +467,8 @@ class MainActivity : BaseActivity(), SensorEventListener {
          * */
         mBaiduMap?.setMyLocationConfiguration(
             MyLocationConfiguration(
-                MyLocationConfiguration.LocationMode.NORMAL, true, null
+                MyLocationConfiguration.LocationMode.NORMAL, true,
+                com.baidu.mapapi.map.BitmapDescriptorFactory.fromResource(R.drawable.ic_position)
             )
         )
 

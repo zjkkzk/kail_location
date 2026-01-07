@@ -2,6 +2,7 @@ package com.kail.location.views.routesimulation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.graphics.ColorFilter
 import com.baidu.mapapi.map.MapView
 import com.baidu.mapapi.model.LatLng
 import com.baidu.mapapi.map.BaiduMap
@@ -86,8 +88,9 @@ fun RoutePlanScreen(
     var hasCentered by remember { mutableStateOf(false) }
     
     // Marker state
-    val waypointMarkers = remember { mutableStateListOf<Overlay>() }
     var currentMarkerOverlay by remember { mutableStateOf<Overlay?>(null) }
+    var startMarkerOverlay by remember { mutableStateOf<Overlay?>(null) }
+    var endMarkerOverlay by remember { mutableStateOf<Overlay?>(null) }
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -99,6 +102,13 @@ fun RoutePlanScreen(
             val map = mapView?.map
             if (map != null) {
                 map.isMyLocationEnabled = true
+                map.setMyLocationConfiguration(
+                    com.baidu.mapapi.map.MyLocationConfiguration(
+                        com.baidu.mapapi.map.MyLocationConfiguration.LocationMode.NORMAL,
+                        true,
+                        com.baidu.mapapi.map.BitmapDescriptorFactory.fromResource(R.drawable.ic_position)
+                    )
+                )
                 XLog.i("RoutePlanScreen: Map initialized")
                 
                 map.setOnMapStatusChangeListener(object : BaiduMap.OnMapStatusChangeListener {
@@ -174,7 +184,7 @@ fun RoutePlanScreen(
         }
     }
 
-    LaunchedEffect(mapView, currentLatLng) {
+    LaunchedEffect(mapView, currentLatLng, markingPhase) {
         try {
             val map = mapView?.map
             if (map != null) {
@@ -186,14 +196,17 @@ fun RoutePlanScreen(
                 }
                 
                 // Update Current Location Marker
-                if (ll != null) {
+                if (markingPhase == MarkingPhase.Idle && ll != null) {
                     currentMarkerOverlay?.remove()
                     val option = MarkerOptions()
                         .position(ll)
-                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_gcoding))
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_position))
                         .zIndex(9)
                         .draggable(false)
                     currentMarkerOverlay = map.addOverlay(option)
+                } else {
+                    currentMarkerOverlay?.remove()
+                    currentMarkerOverlay = null
                 }
             }
         } catch (e: Exception) {
@@ -201,29 +214,31 @@ fun RoutePlanScreen(
         }
     }
 
-    // Update Waypoint Markers
     LaunchedEffect(mapView, waypoints.size, waypoints.toList()) {
         val map = mapView?.map
         if (map != null) {
-            // Clear old markers
-            waypointMarkers.forEach { it.remove() }
-            waypointMarkers.clear()
-            
-            // Add new markers
-            waypoints.forEachIndexed { index, latLng ->
-                // Use white for intermediate, red for start/end? Or just white/red dots as requested.
-                // Assuming Start/End = Red, Intermediate = White
-                val isStartOrEnd = index == 0 || index == waypoints.lastIndex
-                val color = if (isStartOrEnd) AndroidColor.RED else AndroidColor.WHITE
-                
-                val descriptor = bitmapDescriptorFromVector(context, R.drawable.ic_position, color)
-                if (descriptor != null) {
-                    val option = MarkerOptions()
-                        .position(latLng)
-                        .icon(descriptor)
-                        .zIndex(8)
-                        .draggable(false)
-                    waypointMarkers.add(map.addOverlay(option))
+            startMarkerOverlay?.remove()
+            endMarkerOverlay?.remove()
+            startMarkerOverlay = null
+            endMarkerOverlay = null
+
+            if (waypoints.isNotEmpty()) {
+                val start = waypoints.first()
+                val startDesc = bitmapDescriptorFromVector(context, R.drawable.icon_gcoding, AndroidColor.WHITE)
+                if (startDesc != null) {
+                    startMarkerOverlay = map.addOverlay(
+                        MarkerOptions().position(start).icon(startDesc).zIndex(8).draggable(false)
+                    )
+                }
+            }
+
+            if (waypoints.size >= 2) {
+                val end = waypoints.last()
+                val endDesc = bitmapDescriptorFromVector(context, R.drawable.icon_gcoding, AndroidColor.RED)
+                if (endDesc != null) {
+                    endMarkerOverlay = map.addOverlay(
+                        MarkerOptions().position(end).icon(endDesc).zIndex(8).draggable(false)
+                    )
                 }
             }
         }
@@ -254,7 +269,7 @@ fun RoutePlanScreen(
                 HorizontalDivider()
                 NavigationDrawerItem(
                     label = { Text(stringResource(R.string.nav_menu_location_simulation)) },
-                    icon = { Icon(painterResource(R.drawable.ic_position), contentDescription = null) },
+//                    icon = { Icon(painterResource(R.drawable.icon_gcoding), contentDescription = null) },
                     selected = false,
                     onClick = { scope.launch { drawerState.close(); onNavigate(R.id.nav_location_simulation) } }
                 )
@@ -330,6 +345,31 @@ fun RoutePlanScreen(
             Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
                 if (mapView != null) {
                     AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+                }
+
+                // Center Reference Marker Overlay (fixed to screen center)
+                when (markingPhase) {
+                    MarkingPhase.Preview -> {
+                        Image(
+                            painter = painterResource(id = R.drawable.icon_gcoding),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(28.dp),
+                            colorFilter = ColorFilter.tint(Color(0xFF4CAF50))
+                        )
+                    }
+                    MarkingPhase.Active -> {
+                        Image(
+                            painter = painterResource(id = R.drawable.icon_gcoding),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(28.dp),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+                    else -> { /* No reference marker in Idle */ }
                 }
 
                 // Map Controls Overlay (Right Side)
@@ -448,16 +488,6 @@ fun RoutePlanScreen(
                         contentColor = MaterialTheme.colorScheme.primary
                     ) {
                         Icon(painter = painterResource(id = R.drawable.icon_gcoding), contentDescription = null)
-                    }
-                    SmallFloatingActionButton(onClick = {
-                        try {
-                            onLocateClick?.invoke()
-                            XLog.i("RoutePlanScreen: Locate clicked")
-                        } catch (e: Exception) {
-                            XLog.e("RoutePlanScreen: Locate error", e)
-                        }
-                    }, containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary) {
-                        Icon(painter = painterResource(id = R.drawable.ic_position), contentDescription = null)
                     }
                     FloatingActionButton(
                         onClick = {

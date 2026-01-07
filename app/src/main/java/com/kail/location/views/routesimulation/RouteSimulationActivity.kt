@@ -21,6 +21,8 @@ import com.kail.location.views.theme.locationTheme
 import com.kail.location.viewmodels.RouteSimulationViewModel
 import com.kail.location.views.locationsimulation.LocationSimulationActivity
 import com.kail.location.views.settings.SettingsActivity
+import com.baidu.mapapi.map.MyLocationConfiguration
+import com.baidu.mapapi.map.BitmapDescriptorFactory
 
 /**
  * 路线模拟页面活动
@@ -177,6 +179,13 @@ class RouteSimulationActivity : BaseActivity() {
      */
     private fun initMapLocation() {
         mBaiduMap?.isMyLocationEnabled = true
+        mBaiduMap?.setMyLocationConfiguration(
+            MyLocationConfiguration(
+                MyLocationConfiguration.LocationMode.NORMAL,
+                true,
+                BitmapDescriptorFactory.fromResource(R.drawable.ic_position)
+            )
+        )
         // 建议使用 ApplicationContext 初始化 LocationClient，避免内存泄漏并确保 Context 稳定
         mLocClient = LocationClient(applicationContext)
 
