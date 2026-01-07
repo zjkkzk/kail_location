@@ -43,6 +43,7 @@ import com.baidu.mapapi.map.BitmapDescriptor
 import com.baidu.mapapi.map.BitmapDescriptorFactory
 import com.baidu.mapapi.map.MarkerOptions
 import android.content.Context
+import com.kail.location.viewmodels.RouteSimulationViewModel
 
 /**
  * 标点阶段枚举
@@ -71,7 +72,8 @@ fun RoutePlanScreen(
     onLocateClick: (() -> Unit)? = null,
     currentLatLng: LatLng? = null,
     onNavigate: (Int) -> Unit,
-    appVersion: String
+    appVersion: String,
+    viewModel: RouteSimulationViewModel
 ) {
     var startPoint by remember { mutableStateOf("") }
     var endPoint by remember { mutableStateOf("") }
@@ -493,14 +495,8 @@ fun RoutePlanScreen(
                         onClick = {
                             try {
                                 if (waypoints.size >= 2) {
-                                    val wgsPoints = ArrayList<Double>(waypoints.size * 2)
-                                    waypoints.forEach { p ->
-                                        val wgs = MapUtils.bd2wgs(p.longitude, p.latitude)
-                                        wgsPoints.add(wgs[0])
-                                        wgsPoints.add(wgs[1])
-                                    }
-                                    saveRoute(prefs, wgsPoints)
-                                    XLog.i("RoutePlanScreen: Saved route with ${waypoints.size} points")
+                                    viewModel.saveRoute(waypoints.toList())
+                                    XLog.i("RoutePlanScreen: Saved route with ${waypoints.size} points via ViewModel")
                                 }
                                 onConfirmClick()
                             } catch (e: Exception) {

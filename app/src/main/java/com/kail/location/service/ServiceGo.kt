@@ -54,6 +54,7 @@ class ServiceGo : Service() {
     private var mRoutePoints: MutableList<Pair<Double, Double>> = mutableListOf()
     private var mRouteIndex = 0
     private var mRouteLoop = false
+    private var mSegmentProgressMeters = 0.0
 
     companion object {
         const val DEFAULT_LAT = 36.667662
@@ -73,6 +74,7 @@ class ServiceGo : Service() {
         const val EXTRA_ROUTE_POINTS = "EXTRA_ROUTE_POINTS"
         const val EXTRA_ROUTE_LOOP = "EXTRA_ROUTE_LOOP"
         const val EXTRA_JOYSTICK_ENABLED = "EXTRA_JOYSTICK_ENABLED"
+        const val EXTRA_ROUTE_SPEED = "EXTRA_ROUTE_SPEED"
     }
 
     /**
@@ -168,6 +170,7 @@ class ServiceGo : Service() {
             mCurLat = intent.getDoubleExtra(MainActivity.LAT_MSG_ID, DEFAULT_LAT)
             mCurAlt = intent.getDoubleExtra(MainActivity.ALT_MSG_ID, DEFAULT_ALT)
             val joystickEnabled = intent.getBooleanExtra(EXTRA_JOYSTICK_ENABLED, true)
+            mSpeed = intent.getFloatExtra(EXTRA_ROUTE_SPEED, mSpeed.toFloat()).toDouble() / 3.6
             val routeArray = intent.getDoubleArrayExtra(EXTRA_ROUTE_POINTS)
             if (routeArray != null && routeArray.size >= 2) {
                 mRoutePoints.clear()
@@ -178,6 +181,7 @@ class ServiceGo : Service() {
                 }
                 mRouteIndex = 0
                 mRouteLoop = intent.getBooleanExtra(EXTRA_ROUTE_LOOP, false)
+                mSegmentProgressMeters = 0.0
             }
             
             XLog.i("ServiceGo: onStartCommand received lat=$mCurLat, lng=$mCurLng")
@@ -351,19 +355,8 @@ class ServiceGo : Service() {
                     Thread.sleep(100)
 
                     if (!isStop) {
-                        if (mRoutePoints.isNotEmpty()) {
-                            val p = mRoutePoints[mRouteIndex]
-                            mCurLng = p.first
-                            mCurLat = p.second
-                            mRouteIndex++
-                            if (mRouteIndex >= mRoutePoints.size) {
-                                if (mRouteLoop) {
-                                    mRouteIndex = 0
-                                } else {
-                                    mRoutePoints.clear()
-                                    mRouteIndex = 0
-                                }
-                            }
+                        if (mRoutePoints.size >= 2) {
+                            advanceAlongRoute(mSpeed * 0.1)
                         }
                         setLocationNetwork()
                         setLocationGPS()
@@ -384,6 +377,82 @@ class ServiceGo : Service() {
         }
 
         mLocHandler.sendEmptyMessage(HANDLER_MSG_ID)
+    }
+
+    private fun advanceAlongRoute(distanceMeters: Double) {
+        var remaining = distanceMeters
+        while (remaining > 0 && mRoutePoints.size >= 2) {
+            val startIdx = mRouteIndex
+            val endIdx = if (startIdx + 1 < mRoutePoints.size) startIdx + 1 else -1
+            if (endIdx == -1) {
+                if (mRouteLoop) {
+                    mRouteIndex = 0
+                    mSegmentProgressMeters = 0.0
+                    continue
+                } else {
+                    mRoutePoints.clear()
+                    mRouteIndex = 0
+                    mSegmentProgressMeters = 0.0
+                    break
+                }
+            }
+            val a = mRoutePoints[startIdx]
+            val b = mRoutePoints[endIdx]
+            val metersPerDegLat = 110.574 * 1000.0
+            val metersPerDegLng = 111.320 * 1000.0 * kotlin.math.cos(kotlin.math.abs(mCurLat) * Math.PI / 180.0)
+            val dLatDeg = b.second - a.second
+            val dLngDeg = b.first - a.first
+            val segLenMeters = kotlin.math.sqrt((dLatDeg * metersPerDegLat) * (dLatDeg * metersPerDegLat) + (dLngDeg * metersPerDegLng) * (dLngDeg * metersPerDegLng))
+            if (segLenMeters <= 0.0) {
+                mRouteIndex++
+                mSegmentProgressMeters = 0.0
+                if (mRouteIndex >= mRoutePoints.size - 1) {
+                    if (mRouteLoop) {
+                        mRouteIndex = 0
+                    } else {
+                        mRoutePoints.clear()
+                        mRouteIndex = 0
+                        break
+                    }
+                }
+                continue
+            }
+            val available = segLenMeters - mSegmentProgressMeters
+            if (remaining >= available) {
+                mCurLng = b.first
+                mCurLat = b.second
+                mCurBea = bearingDegrees(a.first, a.second, b.first, b.second)
+                remaining -= available
+                mRouteIndex++
+                mSegmentProgressMeters = 0.0
+                if (mRouteIndex >= mRoutePoints.size - 1) {
+                    if (mRouteLoop) {
+                        mRouteIndex = 0
+                    } else {
+                        mRoutePoints.clear()
+                        mRouteIndex = 0
+                        break
+                    }
+                }
+            } else {
+                mSegmentProgressMeters += remaining
+                val f = mSegmentProgressMeters / segLenMeters
+                mCurLng = a.first + dLngDeg * f
+                mCurLat = a.second + dLatDeg * f
+                mCurBea = bearingDegrees(a.first, a.second, b.first, b.second)
+                remaining = 0.0
+            }
+        }
+    }
+
+    private fun bearingDegrees(lng1: Double, lat1: Double, lng2: Double, lat2: Double): Float {
+        val dLng = Math.toRadians(lng2 - lng1)
+        val rLat1 = Math.toRadians(lat1)
+        val rLat2 = Math.toRadians(lat2)
+        val y = kotlin.math.sin(dLng) * kotlin.math.cos(rLat2)
+        val x = kotlin.math.cos(rLat1) * kotlin.math.sin(rLat2) - kotlin.math.sin(rLat1) * kotlin.math.cos(rLat2) * kotlin.math.cos(dLng)
+        val brng = Math.atan2(y, x)
+        return Math.toDegrees(brng).toFloat()
     }
 
     /**

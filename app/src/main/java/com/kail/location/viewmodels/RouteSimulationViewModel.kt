@@ -16,6 +16,8 @@ import com.kail.location.models.UpdateInfo
 import com.kail.location.utils.UpdateChecker
 import android.content.Context
 import android.widget.Toast
+import com.baidu.mapapi.model.LatLng
+import org.json.JSONObject
 
 /**
  * 路线模拟页面的 ViewModel。
@@ -36,6 +38,9 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
      */
     val updateInfo: StateFlow<UpdateInfo?> = _updateInfo.asStateFlow()
 
+    private val _isSimulating = MutableStateFlow(false)
+    val isSimulating: StateFlow<Boolean> = _isSimulating.asStateFlow()
+    
     init {
         loadRoutes()
     }
@@ -69,6 +74,10 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
      */
     fun dismissUpdateDialog() {
         _updateInfo.value = null
+    }
+
+    fun setSimulating(value: Boolean) {
+        _isSimulating.value = value
     }
 
     /**
@@ -111,6 +120,50 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
             list.map { it.second }
         } catch (e: Exception) {
             emptyList()
+        }
+    }
+
+    fun saveRoute(points: List<LatLng>) {
+        viewModelScope.launch {
+            try {
+                val prefs = PreferenceManager.getDefaultSharedPreferences(getApplication())
+                val existing = prefs.getString("saved_routes", "[]") ?: "[]"
+                val arr = JSONArray(existing)
+                val obj = JSONObject()
+                obj.put("time", System.currentTimeMillis())
+                val pts = JSONArray()
+                points.forEach { pt ->
+                    val p = JSONObject()
+                    p.put("lat", pt.latitude)
+                    p.put("lng", pt.longitude)
+                    pts.put(p)
+                }
+                obj.put("points", pts)
+                arr.put(obj)
+                prefs.edit().putString("saved_routes", arr.toString()).apply()
+                _historyRoutes.value = parseRoutes(arr.toString())
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun getLatestRoutePoints(): DoubleArray? {
+        return try {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(getApplication())
+            val res = prefs.getString("saved_routes", "[]") ?: "[]"
+            val arr = JSONArray(res)
+            if (arr.length() == 0) return null
+            val obj = arr.optJSONObject(arr.length() - 1) ?: return null
+            val points = obj.optJSONArray("points") ?: return null
+            val out = DoubleArray(points.length() * 2)
+            var i = 0
+            for (idx in 0 until points.length()) {
+                val p = points.optJSONObject(idx) ?: continue
+                out[i++] = p.optDouble("lng")
+                out[i++] = p.optDouble("lat")
+            }
+            out
+        } catch (_: Exception) {
+            null
         }
     }
 }

@@ -23,6 +23,8 @@ import com.kail.location.views.locationsimulation.LocationSimulationActivity
 import com.kail.location.views.settings.SettingsActivity
 import com.baidu.mapapi.map.MyLocationConfiguration
 import com.baidu.mapapi.map.BitmapDescriptorFactory
+import com.kail.location.service.ServiceGo
+import androidx.core.content.ContextCompat
 
 /**
  * 路线模拟页面活动
@@ -99,7 +101,29 @@ class RouteSimulationActivity : BaseActivity() {
                             viewModel = viewModel,
                             onNavigate = onNavigate,
                             onAddRouteClick = { currentScreen = Screen.PLAN },
-                            appVersion = version
+                            appVersion = version,
+                            onStartSimulation = { settings ->
+                                try {
+                                    val points = viewModel.getLatestRoutePoints()
+                                    if (points != null && points.size >= 4) {
+                                        val intent = Intent(this@RouteSimulationActivity, ServiceGo::class.java)
+                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_POINTS, points)
+                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_LOOP, settings.isLoop)
+                                        intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, false)
+                                        intent.putExtra(ServiceGo.EXTRA_ROUTE_SPEED, settings.speed)
+                                        ContextCompat.startForegroundService(this@RouteSimulationActivity, intent)
+                                        viewModel.setSimulating(true)
+                                    } else {
+                                        android.widget.Toast.makeText(this@RouteSimulationActivity, "请先添加并保存路线", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(this@RouteSimulationActivity, "启动模拟失败", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onStopSimulation = {
+                                stopService(Intent(this@RouteSimulationActivity, ServiceGo::class.java))
+                                viewModel.setSimulating(false)
+                            }
                         )
                     }
                     Screen.PLAN -> {
@@ -127,7 +151,8 @@ class RouteSimulationActivity : BaseActivity() {
                                 if (!invalid) LatLng(lat, lon) else null
                             },
                             onNavigate = onNavigate,
-                            appVersion = version
+                            appVersion = version,
+                            viewModel = viewModel
                         )
                     }
                 }

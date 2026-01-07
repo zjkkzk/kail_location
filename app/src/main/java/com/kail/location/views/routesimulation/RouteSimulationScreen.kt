@@ -52,7 +52,9 @@ fun RouteSimulationScreen(
     viewModel: RouteSimulationViewModel,
     onNavigate: (Int) -> Unit,
     onAddRouteClick: () -> Unit,
-    appVersion: String
+    appVersion: String,
+    onStartSimulation: (SimulationSettings) -> Unit,
+    onStopSimulation: () -> Unit
 ) {
     // State
     val context = LocalContext.current
@@ -62,6 +64,7 @@ fun RouteSimulationScreen(
     val historyRoutes by viewModel.historyRoutes.collectAsState()
     val currentRoute = historyRoutes.firstOrNull() ?: RouteInfo("-", "暂无", "暂无", "")
     val updateInfo by viewModel.updateInfo.collectAsState()
+    val isSimulating by viewModel.isSimulating.collectAsState()
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -187,7 +190,10 @@ fun RouteSimulationScreen(
                             isTarget = true,
                             settings = settings,
                             onSettingsClick = { showSettingsDialog = true },
-                            onLoopToggle = { settings = settings.copy(isLoop = it) }
+                            onLoopToggle = { settings = settings.copy(isLoop = it) },
+                            onStartSimulation = onStartSimulation,
+                            isSimulating = isSimulating,
+                            onStopSimulation = onStopSimulation
                         )
                         
                         // FAB overlapping the card
@@ -253,7 +259,10 @@ fun RouteCard(
     isTarget: Boolean,
     settings: SimulationSettings? = null,
     onSettingsClick: (() -> Unit)? = null,
-    onLoopToggle: ((Boolean) -> Unit)? = null
+    onLoopToggle: ((Boolean) -> Unit)? = null,
+    onStartSimulation: ((SimulationSettings) -> Unit)? = null,
+    isSimulating: Boolean = false,
+    onStopSimulation: (() -> Unit)? = null
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -333,14 +342,14 @@ fun RouteCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Button(
-                        onClick = { /* TODO: Start Simulation */ },
+                        onClick = { if (isSimulating) onStopSimulation?.invoke() else onStartSimulation?.invoke(settings!!) },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         ),
                         shape = RoundedCornerShape(20.dp),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp)
                     ) {
-                        Text("启动模拟", fontSize = 14.sp)
+                        Text(if (isSimulating) "停止模拟" else "启动模拟", fontSize = 14.sp)
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -530,4 +539,3 @@ fun getModeIcon(mode: TransportMode): Int {
         TransportMode.Plane -> R.drawable.ic_fly
     }
 }
-
