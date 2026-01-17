@@ -120,7 +120,6 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
         app.stopService(Intent(app, ServiceGo::class.java))
         _isSimulating.value = false
     }
-
     fun setRunMode(mode: String) {
         _runMode.value = mode
         sharedPreferences.edit().putString("setting_run_mode", mode).apply()
