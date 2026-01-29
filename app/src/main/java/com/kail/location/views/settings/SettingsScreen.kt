@@ -46,6 +46,7 @@ fun SettingsScreen(
     val lonOffset by viewModel.lonOffset.collectAsState()
     val logOff by viewModel.logOff.collectAsState()
     val historyExpiration by viewModel.historyExpiration.collectAsState()
+    val baiduMapKey by viewModel.baiduMapKey.collectAsState()
 
     Scaffold(
         topBar = {
@@ -144,6 +145,12 @@ fun SettingsScreen(
 
             // Group: Other
             PreferenceCategory(title = "其他") // "其他" or generic
+
+            EditTextPreference(
+                title = "百度地图 Key (需重启生效)",
+                value = baiduMapKey,
+                onValueChange = { viewModel.updateStringPreference(SettingsViewModel.KEY_BAIDU_MAP_KEY, it) }
+            )
 
             SwitchPreference(
                 title = "关闭日志", // setting_log_off

@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
 import com.baidu.mapapi.model.LatLng
-import com.kail.location.views.main.MainActivity
 import com.kail.location.repositories.RootMockRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,7 +20,7 @@ import kotlinx.coroutines.launch
  *
  * @property application 应用上下文。
  */
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class LocationPickerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val mockRepo = RootMockRepository(application)
 

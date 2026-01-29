@@ -25,8 +25,8 @@ import com.baidu.mapapi.search.sug.SuggestionSearchOption
 import com.elvishew.xlog.XLog
 import com.kail.location.repositories.DataBaseHistoryLocation
 import com.kail.location.views.history.HistoryActivity
-import com.kail.location.views.main.MainActivity
-import com.kail.location.viewmodels.MainViewModel
+import com.kail.location.views.locationpicker.LocationPickerActivity
+import com.kail.location.viewmodels.LocationPickerViewModel
 import com.kail.location.R
 import com.kail.location.utils.GoUtils
 import com.kail.location.utils.MapUtils
@@ -458,10 +458,10 @@ class JoyStick @JvmOverloads constructor(
                         for (info in suggestionResult.allSuggestions) {
                             if (info.pt == null) continue
                             val poiItem: MutableMap<String, Any> = HashMap()
-                            poiItem[MainViewModel.POI_NAME] = info.key
-                            poiItem[MainViewModel.POI_ADDRESS] = (info.city ?: "") + " " + (info.district ?: "")
-                            poiItem[MainViewModel.POI_LONGITUDE] = "" + info.pt.longitude
-                            poiItem[MainViewModel.POI_LATITUDE] = "" + info.pt.latitude
+                            poiItem[LocationPickerViewModel.POI_NAME] = info.key
+                            poiItem[LocationPickerViewModel.POI_ADDRESS] = (info.city ?: "") + " " + (info.district ?: "")
+                            poiItem[LocationPickerViewModel.POI_LONGITUDE] = "" + info.pt.longitude
+                            poiItem[LocationPickerViewModel.POI_LATITUDE] = "" + info.pt.latitude
                             data.add(poiItem)
                         }
                         searchResults = data
@@ -505,7 +505,7 @@ class JoyStick @JvmOverloads constructor(
                             mSuggestionSearch.requestSuggestion(
                                 SuggestionSearchOption()
                                     .keyword(query)
-                                    .city(MainActivity.mCurrentCity ?: "")
+                                    .city(LocationPickerActivity.mCurrentCity ?: "")
                             )
                         } catch (e: Exception) {
                             GoUtils.DisplayToast(mContext, resources.getString(R.string.app_error_search))
@@ -517,8 +517,8 @@ class JoyStick @JvmOverloads constructor(
                 },
                 searchResults = searchResults,
                 onSelectSearchResult = { item ->
-                    val lng = item[MainViewModel.POI_LONGITUDE].toString()
-                    val lat = item[MainViewModel.POI_LATITUDE].toString()
+                    val lng = item[LocationPickerViewModel.POI_LONGITUDE].toString()
+                    val lat = item[LocationPickerViewModel.POI_LATITUDE].toString()
                     markBaiduMap(LatLng(lat.toDouble(), lng.toDouble()))
                 }
             )
@@ -566,7 +566,7 @@ class JoyStick @JvmOverloads constructor(
         try {
             mMarkMapLngLat = latLng
 
-            val ooA = MarkerOptions().position(latLng).icon(MainActivity.mMapIndicator)
+            val ooA = MarkerOptions().position(latLng).icon(LocationPickerActivity.mMapIndicator)
             mBaiduMap.clear()
             mBaiduMap.addOverlay(ooA)
 

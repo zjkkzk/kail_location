@@ -30,11 +30,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         const val KEY_RANDOM_OFFSET = "setting_random_offset"
         const val KEY_LOG_OFF = "setting_log_off"
         const val KEY_HISTORY_EXPIRATION = "setting_history_expiration"
+        const val KEY_BAIDU_MAP_KEY = "setting_baidu_map_key"
     }
 
     private val _joystickType = MutableStateFlow(prefs.getString(KEY_JOYSTICK_TYPE, "0") ?: "0")
     /** 摇杆类型偏好的状态流。 */
     val joystickType: StateFlow<String> = _joystickType.asStateFlow()
+
+    private val _baiduMapKey = MutableStateFlow(prefs.getString(KEY_BAIDU_MAP_KEY, "") ?: "")
+    /** 百度地图 Key 偏好的状态流。 */
+    val baiduMapKey: StateFlow<String> = _baiduMapKey.asStateFlow()
 
     private val _walkSpeed = MutableStateFlow(prefs.getString(KEY_WALK_SPEED, "1.2") ?: "1.2")
     /** 步行速度偏好的状态流。 */
@@ -78,6 +83,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
         when (key) {
             KEY_JOYSTICK_TYPE -> _joystickType.value = sharedPreferences.getString(key, "0") ?: "0"
+            KEY_BAIDU_MAP_KEY -> _baiduMapKey.value = sharedPreferences.getString(key, "") ?: ""
             KEY_WALK_SPEED -> _walkSpeed.value = sharedPreferences.getString(key, "1.2") ?: "1.2"
             KEY_RUN_SPEED -> _runSpeed.value = sharedPreferences.getString(key, "3.6") ?: "3.6"
             KEY_BIKE_SPEED -> _bikeSpeed.value = sharedPreferences.getString(key, "10.0") ?: "10.0"

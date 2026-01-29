@@ -20,7 +20,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.elvishew.xlog.XLog
-import com.kail.location.views.main.MainActivity
+import com.kail.location.views.locationpicker.LocationPickerActivity
 import com.kail.location.R
 import com.kail.location.utils.GoUtils
 import com.kail.location.views.joystick.JoyStick
@@ -189,8 +189,8 @@ class ServiceGo : Service() {
         if (intent != null) {
             mRunMode = intent.getStringExtra(EXTRA_RUN_MODE) ?: "noroot"
             val coordType = intent.getStringExtra(EXTRA_COORD_TYPE) ?: COORD_BD09
-            mCurLng = intent.getDoubleExtra(MainActivity.LNG_MSG_ID, DEFAULT_LNG)
-            mCurLat = intent.getDoubleExtra(MainActivity.LAT_MSG_ID, DEFAULT_LAT)
+            mCurLng = intent.getDoubleExtra(LocationPickerActivity.LNG_MSG_ID, DEFAULT_LNG)
+            mCurLat = intent.getDoubleExtra(LocationPickerActivity.LAT_MSG_ID, DEFAULT_LAT)
             try {
                 when (coordType) {
                     COORD_WGS84 -> { /* keep */ }
@@ -206,7 +206,7 @@ class ServiceGo : Service() {
                     }
                 }
             } catch (_: Exception) {}
-            mCurAlt = intent.getDoubleExtra(MainActivity.ALT_MSG_ID, DEFAULT_ALT)
+            mCurAlt = intent.getDoubleExtra(LocationPickerActivity.ALT_MSG_ID, DEFAULT_ALT)
             val joystickEnabled = intent.getBooleanExtra(EXTRA_JOYSTICK_ENABLED, true)
             mSpeed = intent.getFloatExtra(EXTRA_ROUTE_SPEED, mSpeed.toFloat()).toDouble() / 3.6
             val routeArray = intent.getDoubleArrayExtra(EXTRA_ROUTE_POINTS)
@@ -336,9 +336,9 @@ class ServiceGo : Service() {
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
         
         notificationManager?.createNotificationChannel(mChannel)
-
+        
         //准备intent
-        val clickIntent = Intent(this, MainActivity::class.java)
+        val clickIntent = Intent(this, LocationPickerActivity::class.java)
         val clickPI = PendingIntent.getActivity(this, 1, clickIntent, PendingIntent.FLAG_IMMUTABLE)
         val showIntent = Intent(SERVICE_GO_NOTE_ACTION_JOYSTICK_SHOW)
         val showPendingPI =

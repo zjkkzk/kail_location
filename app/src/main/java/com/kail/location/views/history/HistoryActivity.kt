@@ -1,7 +1,7 @@
 package com.kail.location.views.history
 
 import com.kail.location.views.base.BaseActivity
-import com.kail.location.views.main.MainActivity
+import com.kail.location.views.locationpicker.LocationPickerActivity
 
 import android.os.Bundle
 import android.content.Context

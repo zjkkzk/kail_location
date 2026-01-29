@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.viewModelScope
 import androidx.core.content.ContextCompat
 import com.kail.location.service.ServiceGo
-import com.kail.location.views.main.MainActivity
+import com.kail.location.views.locationpicker.LocationPickerActivity
 
 /**
  * 位置模拟页面的 ViewModel。
@@ -95,9 +95,9 @@ class LocationSimulationViewModel(application: Application) : AndroidViewModel(a
         if (next) {
             val info = locationInfo.value
             val intent = Intent(app, ServiceGo::class.java)
-            intent.putExtra(MainActivity.LNG_MSG_ID, info.longitude)
-            intent.putExtra(MainActivity.LAT_MSG_ID, info.latitude)
-            intent.putExtra(MainActivity.ALT_MSG_ID, 55.0)
+            intent.putExtra(LocationPickerActivity.LNG_MSG_ID, info.longitude)
+            intent.putExtra(LocationPickerActivity.LAT_MSG_ID, info.latitude)
+            intent.putExtra(LocationPickerActivity.ALT_MSG_ID, 55.0)
             intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, isJoystickEnabled.value)
             intent.putExtra(ServiceGo.EXTRA_COORD_TYPE, ServiceGo.COORD_BD09)
             intent.putExtra(ServiceGo.EXTRA_RUN_MODE, runMode.value)

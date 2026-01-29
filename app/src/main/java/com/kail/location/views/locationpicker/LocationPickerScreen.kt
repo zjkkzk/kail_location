@@ -1,6 +1,6 @@
-package com.kail.location.views.main
+package com.kail.location.views.locationpicker
 
-import com.kail.location.views.main.MainActivity
+import com.kail.location.views.locationpicker.LocationPickerActivity
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,8 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.baidu.mapapi.map.MapView
 import com.kail.location.R
-import com.kail.location.viewmodels.MainViewModel.PoiInfo
-import com.kail.location.viewmodels.MainViewModel.UpdateInfo
+import com.kail.location.viewmodels.LocationPickerViewModel.PoiInfo
+import com.kail.location.viewmodels.LocationPickerViewModel.UpdateInfo
+import com.kail.location.viewmodels.LocationPickerViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,12 +33,14 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.ImageView
+import com.kail.location.views.common.DrawerHeader
+import com.kail.location.views.common.PoiDetailCard
+import com.baidu.mapapi.map.BaiduMap
 
 
 /**
- * 主屏幕 Composable
+ * 位置选择屏幕 Composable
  * 整合了地图视图、抽屉导航、浮动按钮、缩放控件以及 POI 信息卡片。
  *
  * @param mapView 百度地图 View 实例
@@ -66,7 +69,7 @@ import android.widget.ImageView
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(
+fun LocationPickerScreen(
     mapView: MapView?,
     isMocking: Boolean,
     targetLocation: com.baidu.mapapi.model.LatLng,
@@ -91,7 +94,7 @@ fun MainScreen(
     updateInfo: UpdateInfo?,
     onUpdateDismiss: () -> Unit,
     onUpdateConfirm: (String) -> Unit,
-    searchResults: List<Map<String, Any>>,
+    searchResults: List<Map<String, Any>>?,
     onSearch: (String) -> Unit,
     onClearSearchResults: () -> Unit,
     onSelectSearchResult: (Map<String, Any>) -> Unit,
@@ -108,6 +111,10 @@ fun MainScreen(
 
     // Run Mode Dialog State
     var showRunModeDialog by remember { mutableStateOf(false) }
+    
+    // Search State
+    var isSearchActive by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     if (showRunModeDialog) {
         AlertDialog(
@@ -158,10 +165,6 @@ fun MainScreen(
             }
         )
     }
-
-    // Search State
-    var isSearching by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
 
     if (showLocationInputDialog) {
         LocationInputDialog(
@@ -257,95 +260,138 @@ fun MainScreen(
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.app_name)) },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateUp) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                if (isSearchActive) {
+                    SearchBar(
+                        query = searchQuery,
+                        onQueryChange = { 
+                            searchQuery = it
+                            onSearch(it)
+                        },
+                        onSearch = { onSearch(it) },
+                        active = true,
+                        onActiveChange = { isSearchActive = it },
+                        placeholder = { Text("搜索地点") },
+                        leadingIcon = {
+                            IconButton(onClick = { 
+                                isSearchActive = false
+                                searchQuery = ""
+                                onClearSearchResults()
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { 
+                                    searchQuery = ""
+                                    onSearch("")
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear")
+                                }
+                            }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                    ) {
+                        if (searchResults != null) {
+                            LazyColumn {
+                                items(searchResults.size) { index ->
+                                    val item = searchResults[index]
+                                    val name = item[LocationPickerViewModel.POI_NAME].toString()
+                                    val address = item[LocationPickerViewModel.POI_ADDRESS].toString()
+                                    ListItem(
+                                        headlineContent = { Text(name) },
+                                        supportingContent = { Text(address) },
+                                        modifier = Modifier.clickable {
+                                            onSelectSearchResult(item)
+                                            isSearchActive = false
+                                            searchQuery = ""
+                                            onClearSearchResults()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.app_name)) },
+                        navigationIcon = {
+                            IconButton(onClick = onNavigateUp) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "Search")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = Color.White,
+                            navigationIconContentColor = Color.White,
+                            actionIconContentColor = Color.White
+                        )
                     )
-                )
+                }
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = onToggleMock,
-                    containerColor = MaterialTheme.colorScheme.secondary
-                ) {
-                    if (isMocking) {
-                        Icon(painterResource(R.drawable.ic_stop_black_24dp), contentDescription = "Stop", tint = Color.White)
-                    } else {
-                        Icon(painterResource(R.drawable.ic_play_arrow_black_24dp), contentDescription = "Start", tint = Color.White)
+                Column(horizontalAlignment = Alignment.End) {
+                    FloatingActionButton(
+                        onClick = onToggleMock,
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ) {
+                        if (isMocking) {
+                            Icon(painterResource(R.drawable.ic_stop_black_24dp), contentDescription = "Stop", tint = Color.White)
+                        } else {
+                            Icon(painterResource(R.drawable.ic_play_arrow_black_24dp), contentDescription = "Start", tint = Color.White)
+                        }
                     }
                 }
             }
         ) { paddingValues ->
             Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-                // Map View
                 if (mapView != null) {
-                    AndroidView(
-                        factory = { mapView },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("地图加载失败，请检查权限或网络", color = Color.Red)
-                    }
+                    AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
                 }
 
                 // Map Controls Overlay
                 Column(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 8.dp, end = 8.dp)
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     MapControlButton(
                         iconRes = R.drawable.ic_map,
                         onClick = { showMapTypeDialog = true }
                     )
-                }
-
-                // Zoom and Location Controls
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 8.dp)
-                ) {
                     MapControlButton(
                         iconRes = R.drawable.ic_input,
                         onClick = { showLocationInputDialog = true }
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
                     MapControlButton(
                         iconRes = R.drawable.ic_home_position,
                         onClick = onLocate
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
                     MapControlButton(
                         iconRes = R.drawable.ic_zoom_in,
                         onClick = onZoomIn
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
                     MapControlButton(
                         iconRes = R.drawable.ic_zoom_out,
                         onClick = onZoomOut
                     )
                 }
 
-                // POI Info Card
+                // POI Detail Card
                 if (selectedPoi != null) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 16.dp)
                     ) {
-                        PoiInfoCard(
-                            poi = selectedPoi,
+                        PoiDetailCard(
+                            poiName = selectedPoi.name,
+                            poiAddress = selectedPoi.address,
                             onClose = onPoiClose,
                             onSave = { onPoiSave(selectedPoi) },
                             onCopy = { onPoiCopy(selectedPoi) },
@@ -366,16 +412,28 @@ fun MainScreen(
                 Column {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clickable { onMapTypeChange(1); showMapTypeDialog = false }
+                        modifier = Modifier.fillMaxWidth().clickable { 
+                            onMapTypeChange(BaiduMap.MAP_TYPE_NORMAL)
+                            showMapTypeDialog = false 
+                        }
                     ) {
-                        RadioButton(selected = mapView?.map?.mapType == 1, onClick = { onMapTypeChange(1); showMapTypeDialog = false })
+                        RadioButton(selected = mapType == BaiduMap.MAP_TYPE_NORMAL, onClick = { 
+                            onMapTypeChange(BaiduMap.MAP_TYPE_NORMAL)
+                            showMapTypeDialog = false 
+                        })
                         Text("普通地图")
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clickable { onMapTypeChange(2); showMapTypeDialog = false }
+                        modifier = Modifier.fillMaxWidth().clickable { 
+                            onMapTypeChange(BaiduMap.MAP_TYPE_SATELLITE)
+                            showMapTypeDialog = false 
+                        }
                     ) {
-                        RadioButton(selected = mapView?.map?.mapType == 2, onClick = { onMapTypeChange(2); showMapTypeDialog = false })
+                        RadioButton(selected = mapType == BaiduMap.MAP_TYPE_SATELLITE, onClick = { 
+                            onMapTypeChange(BaiduMap.MAP_TYPE_SATELLITE)
+                            showMapTypeDialog = false 
+                        })
                         Text("卫星地图")
                     }
                 }
@@ -430,106 +488,6 @@ fun UpdateDialog(
     )
 }
 
-/**
- * POI 信息展示卡片
- * 显示选中地点的经纬度、地址，并提供操作按钮（飞行、保存、复制、分享）。
- *
- * @param poi POI 信息对象
- * @param onClose 关闭卡片回调
- * @param onSave 保存回调
- * @param onCopy 复制回调
- * @param onShare 分享回调
- * @param onFly 飞行（模拟位置）回调
- */
-@Composable
-fun PoiInfoCard(
-    poi: PoiInfo,
-    onClose: () -> Unit,
-    onSave: () -> Unit,
-    onCopy: () -> Unit,
-    onShare: () -> Unit,
-    onFly: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onFly) {
-                    Icon(painterResource(R.drawable.ic_fly), contentDescription = "Fly", tint = MaterialTheme.colorScheme.secondary)
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Lng: ${poi.longitude}", style = MaterialTheme.typography.bodyMedium)
-                    Text(text = "Lat: ${poi.latitude}", style = MaterialTheme.typography.bodyMedium)
-                }
-                IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = poi.address, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                IconButton(onClick = onSave) {
-                    Icon(painterResource(R.drawable.ic_save), contentDescription = "Save", tint = MaterialTheme.colorScheme.secondary)
-                }
-                IconButton(onClick = onCopy) {
-                    Icon(painterResource(R.drawable.ic_copy), contentDescription = "Copy", tint = MaterialTheme.colorScheme.secondary)
-                }
-                IconButton(onClick = onShare) {
-                    Icon(painterResource(R.drawable.ic_share), contentDescription = "Share", tint = MaterialTheme.colorScheme.secondary)
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun DrawerHeader(version: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(16.dp)
-    ) {
-        AndroidView(
-            factory = { context ->
-                ImageView(context).apply {
-                    setImageResource(R.mipmap.ic_launcher_round)
-                }
-            },
-            modifier = Modifier.size(64.dp)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = version,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_msg), contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.nav_app_tips),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
 @Composable
 fun MapControlButton(iconRes: Int, onClick: () -> Unit) {
     Surface(
@@ -550,64 +508,51 @@ fun MapControlButton(iconRes: Int, onClick: () -> Unit) {
     }
 }
 
-/**
- * 经纬度输入对话框
- * 允许用户手动输入经纬度并选择坐标系（百度/GPS）。
- *
- * @param onDismiss 取消/关闭回调
- * @param onConfirm 确认回调，参数为：(纬度, 经度, 是否为百度坐标)
- */
 @Composable
-fun LocationInputDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Double, Double, Boolean) -> Unit
-) {
-    var lat by remember { mutableStateOf("") }
-    var lng by remember { mutableStateOf("") }
-    var isBd09 by remember { mutableStateOf(true) }
+fun LocationInputDialog(onDismiss: () -> Unit, onConfirm: (Double, Double, Boolean) -> Unit) {
+    var latStr by remember { mutableStateOf("") }
+    var lngStr by remember { mutableStateOf("") }
+    var isBd09 by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.input_position_ok)) },
+        title = { Text("输入坐标") },
         text = {
             Column {
                 OutlinedTextField(
-                    value = lng,
-                    onValueChange = { lng = it },
-                    label = { Text(stringResource(R.string.label_longitude)) },
+                    value = latStr,
+                    onValueChange = { latStr = it },
+                    label = { Text("纬度") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = lat,
-                    onValueChange = { lat = it },
-                    label = { Text(stringResource(R.string.label_latitude)) },
+                    value = lngStr,
+                    onValueChange = { lngStr = it },
+                    label = { Text("经度") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = isBd09, onClick = { isBd09 = true })
-                    Text(stringResource(R.string.input_position_baidu))
-                    Spacer(modifier = Modifier.width(16.dp))
-                    RadioButton(selected = !isBd09, onClick = { isBd09 = false })
-                    Text(stringResource(R.string.input_position_gps))
+                    Checkbox(checked = isBd09, onCheckedChange = { isBd09 = it })
+                    Text("BD09坐标 (默认WGS84)")
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val latVal = lat.toDoubleOrNull()
-                val lngVal = lng.toDoubleOrNull()
-                if (latVal != null && lngVal != null) {
-                    onConfirm(latVal, lngVal, isBd09)
+            Button(onClick = {
+                val lat = latStr.toDoubleOrNull()
+                val lng = lngStr.toDoubleOrNull()
+                if (lat != null && lng != null) {
+                    onConfirm(lat, lng, isBd09)
                 }
             }) {
-                Text(stringResource(R.string.input_position_ok))
+                Text("确定")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.input_position_cancel))
+                Text("取消")
             }
         }
     )

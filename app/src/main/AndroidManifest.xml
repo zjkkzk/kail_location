@@ -110,7 +110,7 @@
         </activity>
 
         <activity
-            android:name="com.kail.location.views.main.MainActivity"
+            android:name="com.kail.location.views.locationpicker.LocationPickerActivity"
             android:launchMode="singleInstance"
             android:exported="false"
             android:theme="@style/AppTheme.NoActionBar" />

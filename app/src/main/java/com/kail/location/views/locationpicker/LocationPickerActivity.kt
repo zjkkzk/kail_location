@@ -1,4 +1,4 @@
-package com.kail.location.views.main
+package com.kail.location.views.locationpicker
 
 import com.kail.location.views.base.BaseActivity
 import com.kail.location.views.history.HistoryActivity
@@ -47,7 +47,7 @@ import com.kail.location.utils.GoUtils
 import com.kail.location.utils.MapUtils
 import com.kail.location.utils.ShareUtils
 import com.kail.location.R
-import com.kail.location.viewmodels.MainViewModel
+import com.kail.location.viewmodels.LocationPickerViewModel
 import com.kail.location.views.locationsimulation.LocationSimulationActivity
 import io.noties.markwon.Markwon
 import okhttp3.*
@@ -59,13 +59,13 @@ import java.util.*
 import kotlin.math.abs
 
 /**
- * 主界面 Activity。
+ * 位置选择 Activity。
  * 负责展示百度地图、处理用户交互、管理定位服务以及传感器数据。
- * 集成了 Compose UI (MainScreen) 用于显示现代化的用户界面。
+ * 集成了 Compose UI (LocationPickerScreen) 用于显示现代化的用户界面。
  */
-class MainActivity : BaseActivity(), SensorEventListener {
+class LocationPickerActivity : BaseActivity(), SensorEventListener {
 
-    private val viewModel: MainViewModel by viewModels()
+    private val viewModel: LocationPickerViewModel by viewModels()
     private lateinit var mOkHttpClient: OkHttpClient
     private lateinit var sharedPreferences: SharedPreferences
 
@@ -222,7 +222,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
             val currentCity by viewModel.currentCity.collectAsState()
 
             locationTheme {
-                MainScreen(
+                LocationPickerScreen(
                     mapView = mMapView,
                     isMocking = isMocking,
                     targetLocation = targetLocation,
@@ -231,7 +231,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                     runMode = runMode,
                     onRunModeChange = { viewModel.setRunMode(it) },
                     onToggleMock = {
-                        if (runMode == MainViewModel.RUN_MODE_ROOT) {
+                        if (runMode == LocationPickerViewModel.RUN_MODE_ROOT) {
                             viewModel.toggleMock()
                         } else {
                             doGoLocation()
@@ -261,8 +261,9 @@ class MainActivity : BaseActivity(), SensorEventListener {
                         mBaiduMap?.addOverlay(option)
                         mBaiduMap?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
                         
+                        mMarkName = "Custom Location"
                         viewModel.selectPoi(
-                             MainViewModel.PoiInfo(
+                             LocationPickerViewModel.PoiInfo(
                                  name = "Custom Location",
                                  address = "Lat: $lat, Lng: $lng",
                                  latitude = target.latitude,
@@ -342,8 +343,8 @@ class MainActivity : BaseActivity(), SensorEventListener {
                     onSearch = { query -> viewModel.search(query, mCurrentCity) },
                     onClearSearchResults = { viewModel.clearSearchResults() },
                     onSelectSearchResult = { item ->
-                        val lng = item[MainViewModel.POI_LONGITUDE].toString()
-                        val lat = item[MainViewModel.POI_LATITUDE].toString()
+                        val lng = item[LocationPickerViewModel.POI_LONGITUDE].toString()
+                        val lat = item[LocationPickerViewModel.POI_LATITUDE].toString()
                         val latVal = lat.toDoubleOrNull()
                         val lngVal = lng.toDoubleOrNull()
                         if (latVal != null && lngVal != null) {
@@ -361,9 +362,9 @@ class MainActivity : BaseActivity(), SensorEventListener {
                             mBaiduMap?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
                             
                             viewModel.selectPoi(
-                                MainViewModel.PoiInfo(
-                                    name = item[MainViewModel.POI_NAME].toString(),
-                                    address = item[MainViewModel.POI_ADDRESS].toString(),
+                                LocationPickerViewModel.PoiInfo(
+                                    name = item[LocationPickerViewModel.POI_NAME].toString(),
+                                    address = item[LocationPickerViewModel.POI_ADDRESS].toString(),
                                     latitude = latVal,
                                     longitude = lngVal
                                 )
@@ -378,7 +379,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
         lifecycleScope.launchWhenStarted {
             viewModel.uiEvents.collect { event ->
                 when (event) {
-                    MainViewModel.UiEvent.NavigateUp -> onBackPressedDispatcher.onBackPressed()
+                    LocationPickerViewModel.UiEvent.NavigateUp -> onBackPressedDispatcher.onBackPressed()
                 }
             }
         }
@@ -555,7 +556,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                     .zIndex(9)
                     .draggable(true)
                 mBaiduMap?.addOverlay(option)
-                Toast.makeText(this@MainActivity, mapPoi.name, Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@LocationPickerActivity, mapPoi.name, Toast.LENGTH_SHORT).show()
             }
         })
 
@@ -575,7 +576,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
 
             override fun onGetReverseGeoCodeResult(reverseGeoCodeResult: ReverseGeoCodeResult?) {
                 if (reverseGeoCodeResult == null || reverseGeoCodeResult.error != SearchResult.ERRORNO.NO_ERROR) {
-                    Toast.makeText(this@MainActivity, "抱歉，未能找到结果", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@LocationPickerActivity, "抱歉，未能找到结果", Toast.LENGTH_LONG).show()
                     return
                 }
 
@@ -592,7 +593,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                 mBaiduMap?.setMapStatus(MapStatusUpdateFactory.newLatLng(mMarkLatLngMap))
                 
                 viewModel.selectPoi(
-                    MainViewModel.PoiInfo(
+                    LocationPickerViewModel.PoiInfo(
                         name = reverseGeoCodeResult.address,
                         address = reverseGeoCodeResult.address,
                         latitude = mMarkLatLngMap.latitude,
@@ -675,7 +676,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
     private fun doGoLocation() {
         XLog.i("doGoLocation called")
         val runMode = viewModel.runMode.value
-        if (runMode != MainViewModel.RUN_MODE_ROOT) {
+        if (runMode != LocationPickerViewModel.RUN_MODE_ROOT) {
             if (!GoUtils.isAllowMockLocation(this)) {
                 XLog.i("Mock location permission NOT granted")
                 GoUtils.DisplayToast(this, "请在开发者选项中开启模拟位置权限！")
@@ -756,7 +757,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
             override fun onFailure(call: Call, e: IOException) {
                 if (!isAuto) {
                     runOnUiThread {
-                        GoUtils.DisplayToast(this@MainActivity, "检查更新失败！")
+                        GoUtils.DisplayToast(this@LocationPickerActivity, "检查更新失败！")
                     }
                 }
             }
@@ -779,7 +780,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                         } catch (e: Exception) {
                             0
                         }
-                        val localVersionName = GoUtils.getVersionName(this@MainActivity)
+                        val localVersionName = GoUtils.getVersionName(this@LocationPickerActivity)
                         val version_old = try {
                             localVersionName.replace(Regex("[^0-9]"), "").toInt()
                         } catch (e: Exception) {
@@ -789,7 +790,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                         if (version_new > version_old) {
                             runOnUiThread {
                                 viewModel.setUpdateInfo(
-                                    MainViewModel.UpdateInfo(
+                                    LocationPickerViewModel.UpdateInfo(
                                         version = tag_name,
                                         content = body,
                                         downloadUrl = browser_download_url,
@@ -800,7 +801,7 @@ class MainActivity : BaseActivity(), SensorEventListener {
                         } else {
                             if (!isAuto) {
                                 runOnUiThread {
-                                    GoUtils.DisplayToast(this@MainActivity, "当前已是最新版本！")
+                                    GoUtils.DisplayToast(this@LocationPickerActivity, "当前已是最新版本！")
                                 }
                             }
                         }

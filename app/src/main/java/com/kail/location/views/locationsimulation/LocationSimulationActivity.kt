@@ -14,7 +14,7 @@ import com.kail.location.views.routesimulation.RouteSimulationActivity
 import com.kail.location.views.settings.SettingsActivity
 import android.widget.Toast
 
-import com.kail.location.views.main.MainActivity
+import com.kail.location.views.locationpicker.LocationPickerActivity
 
 
 /**
@@ -103,7 +103,7 @@ class LocationSimulationActivity : BaseActivity() {
                         }
                     },
                     onAddLocation = {
-                        startActivity(Intent(this, MainActivity::class.java))
+                        startActivity(Intent(this, LocationPickerActivity::class.java))
                     },
                     appVersion = version,
                     onCheckUpdate = { viewModel.checkUpdate(this) }

@@ -44,6 +44,10 @@ import com.baidu.mapapi.map.BitmapDescriptorFactory
 import com.baidu.mapapi.map.MarkerOptions
 import android.content.Context
 import com.kail.location.viewmodels.RouteSimulationViewModel
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 
 /**
  * 标点阶段枚举
@@ -63,6 +67,7 @@ private enum class MarkingPhase { Idle, Preview, Active }
  * @param onNavigate 导航抽屉跳转回调
  * @param appVersion 应用版本展示文本
  */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutePlanScreen(
@@ -101,6 +106,11 @@ fun RoutePlanScreen(
     var showMapTypeDialog by remember { mutableStateOf(false) }
     var showLocationInputDialog by remember { mutableStateOf(false) }
     var showRunModeDialog by remember { mutableStateOf(false) }
+
+    // Search state
+    var isSearchActive by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val searchResults by viewModel.searchResults.collectAsState()
 
     if (showRunModeDialog) {
         AlertDialog(
@@ -399,20 +409,82 @@ fun RoutePlanScreen(
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.app_name)) },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                if (isSearchActive) {
+                    SearchBar(
+                        query = searchQuery,
+                        onQueryChange = { 
+                            searchQuery = it
+                            viewModel.search(it, null)
+                        },
+                        onSearch = { viewModel.search(it, null) },
+                        active = true,
+                        onActiveChange = { isSearchActive = it },
+                        placeholder = { Text("搜索地点") },
+                        leadingIcon = {
+                            IconButton(onClick = { 
+                                isSearchActive = false
+                                searchQuery = ""
+                                viewModel.clearSearchResults()
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { 
+                                    searchQuery = ""
+                                    viewModel.search("", null)
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear")
+                                }
+                            }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White
+                    ) {
+                        if (searchResults.isNotEmpty()) {
+                            LazyColumn {
+                                items(searchResults.size) { index ->
+                                    val item = searchResults[index]
+                                    val name = item[RouteSimulationViewModel.POI_NAME].toString()
+                                    val address = item[RouteSimulationViewModel.POI_ADDRESS].toString()
+                                    ListItem(
+                                        headlineContent = { Text(name) },
+                                        supportingContent = { Text(address) },
+                                        modifier = Modifier.clickable {
+                                            val lat = item[RouteSimulationViewModel.POI_LATITUDE] as Double
+                                            val lng = item[RouteSimulationViewModel.POI_LONGITUDE] as Double
+                                            val target = LatLng(lat, lng)
+                                            mapView?.map?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
+                                            
+                                            isSearchActive = false
+                                            searchQuery = ""
+                                            viewModel.clearSearchResults()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.app_name)) },
+                        navigationIcon = {
+                            IconButton(onClick = onBackClick) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { isSearchActive = true }) {
+                                Icon(Icons.Default.Search, contentDescription = "Search")
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            titleContentColor = Color.White,
+                            navigationIconContentColor = Color.White,
+                            actionIconContentColor = Color.White
+                        )
                     )
-                )
+                }
             }
         ) { paddingValues ->
             Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {

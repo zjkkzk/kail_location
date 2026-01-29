@@ -34,8 +34,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.baidu.mapapi.map.MapView
 import com.kail.location.R
 import com.kail.location.views.history.HistoryActivity
-import com.kail.location.views.main.MainActivity
-import com.kail.location.viewmodels.MainViewModel
+import com.kail.location.views.locationpicker.LocationPickerActivity
+import com.kail.location.viewmodels.LocationPickerViewModel
 
 /**
  * 历史记录浮窗的组合函数。
@@ -136,11 +136,11 @@ fun HistoryItem(
 ) {
     // Determine keys based on available data
     val name = (record[HistoryActivity.KEY_LOCATION] as? String) 
-            ?: (record[MainViewModel.POI_NAME] as? String) 
+            ?: (record[LocationPickerViewModel.POI_NAME] as? String) 
             ?: "Unknown"
             
         val address = (record[HistoryActivity.KEY_TIME] as? String) 
-            ?: (record[MainViewModel.POI_ADDRESS] as? String) 
+            ?: (record[LocationPickerViewModel.POI_ADDRESS] as? String) 
             ?: ""
     
     Column(

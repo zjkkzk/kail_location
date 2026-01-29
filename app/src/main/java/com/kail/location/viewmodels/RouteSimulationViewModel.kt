@@ -26,6 +26,11 @@ import com.baidu.mapapi.search.geocode.ReverseGeoCodeOption
 import androidx.core.content.ContextCompat
 import com.kail.location.service.ServiceGo
 
+import com.baidu.mapapi.search.sug.SuggestionSearch
+import com.baidu.mapapi.search.sug.SuggestionSearchOption
+import com.baidu.mapapi.search.sug.OnGetSuggestionResultListener
+import com.baidu.mapapi.search.sug.SuggestionResult
+
 /**
  * 路线模拟页面的 ViewModel。
  * 负责加载历史路线并检查应用更新。
@@ -56,11 +61,64 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
     private val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(application)
     private val _runMode = MutableStateFlow("noroot")
     val runMode: StateFlow<String> = _runMode.asStateFlow()
+
+    // Search
+    private val _searchResults = MutableStateFlow<List<Map<String, Any>>>(emptyList())
+    val searchResults: StateFlow<List<Map<String, Any>>> = _searchResults.asStateFlow()
+
+    private val suggestionSearch: SuggestionSearch = SuggestionSearch.newInstance()
+
+    companion object {
+        const val POI_NAME = "name"
+        const val POI_ADDRESS = "address"
+        const val POI_LATITUDE = "latitude"
+        const val POI_LONGITUDE = "longitude"
+    }
     
     init {
         _runMode.value = sharedPreferences.getString("setting_run_mode", "noroot") ?: "noroot"
         loadSettings()
         loadRoutes()
+
+        suggestionSearch.setOnGetSuggestionResultListener(object : OnGetSuggestionResultListener {
+            override fun onGetSuggestionResult(res: SuggestionResult?) {
+                if (res == null || res.allSuggestions == null) {
+                    _searchResults.value = emptyList()
+                    return
+                }
+                val results = res.allSuggestions.mapNotNull { suggestion ->
+                    if (suggestion.pt == null) null
+                    else mapOf(
+                        POI_NAME to (suggestion.key ?: ""),
+                        POI_ADDRESS to (suggestion.address ?: ""),
+                        POI_LATITUDE to suggestion.pt.latitude,
+                        POI_LONGITUDE to suggestion.pt.longitude
+                    )
+                }
+                _searchResults.value = results
+            }
+        })
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        suggestionSearch.destroy()
+    }
+
+    fun search(keyword: String, city: String?) {
+        if (keyword.isEmpty()) {
+            _searchResults.value = emptyList()
+            return
+        }
+        suggestionSearch.requestSuggestion(
+            SuggestionSearchOption()
+                .city(city ?: "全国")
+                .keyword(keyword)
+        )
+    }
+
+    fun clearSearchResults() {
+        _searchResults.value = emptyList()
     }
 
     /**

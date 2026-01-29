@@ -13,6 +13,8 @@ import com.elvishew.xlog.printer.file.backup.NeverBackupStrategy
 import com.elvishew.xlog.printer.file.clean.FileLastModifiedCleanStrategy
 import com.elvishew.xlog.printer.file.naming.ChangelessFileNameGenerator
 
+import androidx.preference.PreferenceManager
+
 /**
  * 自定义 Application，负责应用级初始化。
  * 包含崩溃日志写入、XLog 初始化以及百度地图/定位 SDK 的设置。
@@ -22,6 +24,7 @@ class GoApplication : Application() {
         const val APP_NAME = "KailLocation"
         const val LOG_FILE_NAME = "$APP_NAME.log"
         private const val MAX_TIME = (1000 * 60 * 60 * 24 * 3).toLong() // 3 days
+        private const val KEY_BAIDU_MAP_KEY = "setting_baidu_map_key"
     }
 
     /**
@@ -66,6 +69,14 @@ class GoApplication : Application() {
         LocationClient.setAgreePrivacy(true)
 
         try {
+            // 读取自定义 Key
+            val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            val customKey = prefs.getString(KEY_BAIDU_MAP_KEY, "")
+            if (!customKey.isNullOrEmpty()) {
+                SDKInitializer.setApiKey(customKey)
+                LocationClient.setKey(customKey)
+            }
+
             // 在使用 SDK 各组间之前初始化 context 信息，传入 ApplicationContext
             SDKInitializer.initialize(this)
             SDKInitializer.setCoordType(CoordType.BD09LL)
