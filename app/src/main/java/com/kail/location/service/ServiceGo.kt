@@ -18,6 +18,7 @@ import android.os.*
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.preference.PreferenceManager
 import com.elvishew.xlog.XLog
 import com.kail.location.views.main.MainActivity
 import com.kail.location.R
@@ -140,7 +141,16 @@ class ServiceGo : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                 GoUtils.DisplayToast(applicationContext, "请授予悬浮窗权限")
             }
+            val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+            val joystickEnabledPref = prefs.getBoolean("setting_joystick_enabled", true)
             initJoyStick()
+            if (joystickEnabledPref) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) {
+                    mJoyStick.show()
+                }
+            } else {
+                mJoyStick.hide()
+            }
         } catch (e: Throwable) {
             XLog.e("ServiceGo: Error initializing JoyStick", e)
             GoUtils.DisplayToast(applicationContext, "悬浮窗初始化失败: ${e.message}")

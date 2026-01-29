@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -93,7 +94,8 @@ fun MainScreen(
     searchResults: List<Map<String, Any>>,
     onSearch: (String) -> Unit,
     onClearSearchResults: () -> Unit,
-    onSelectSearchResult: (Map<String, Any>) -> Unit
+    onSelectSearchResult: (Map<String, Any>) -> Unit,
+    onNavigateUp: () -> Unit
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -258,8 +260,8 @@ fun MainScreen(
                 TopAppBar(
                     title = { Text(stringResource(R.string.app_name)) },
                     navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        IconButton(onClick = onNavigateUp) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(

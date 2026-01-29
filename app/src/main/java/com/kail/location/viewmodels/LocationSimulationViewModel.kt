@@ -79,6 +79,7 @@ class LocationSimulationViewModel(application: Application) : AndroidViewModel(a
 
     init {
         _runMode.value = sharedPreferences.getString("setting_run_mode", "noroot") ?: "noroot"
+        _isJoystickEnabled.value = sharedPreferences.getBoolean("setting_joystick_enabled", true)
         try {
             db = dbHelper.writableDatabase
             loadRecords()
@@ -115,10 +116,15 @@ class LocationSimulationViewModel(application: Application) : AndroidViewModel(a
      */
     fun setJoystickEnabled(enabled: Boolean) {
         _isJoystickEnabled.value = enabled
+        val app = getApplication<Application>()
+        PreferenceManager.getDefaultSharedPreferences(app)
+            .edit()
+            .putBoolean("setting_joystick_enabled", enabled)
+            .apply()
         if (_isSimulating.value) {
-            val app = getApplication<Application>()
-            val action = if (enabled) ServiceGo.SERVICE_GO_NOTE_ACTION_JOYSTICK_SHOW else ServiceGo.SERVICE_GO_NOTE_ACTION_JOYSTICK_HIDE
-            app.sendBroadcast(Intent(action))
+            val intent = Intent(app, ServiceGo::class.java)
+            intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, enabled)
+            app.startService(intent)
         }
     }
 

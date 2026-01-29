@@ -28,6 +28,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.lifecycleScope
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.baidu.location.BDAbstractLocationListener
@@ -368,8 +369,17 @@ class MainActivity : BaseActivity(), SensorEventListener {
                                 )
                             )
                         }
-                    }
+                    },
+                    onNavigateUp = { viewModel.requestNavigateUp() }
                 )
+            }
+        }
+
+        lifecycleScope.launchWhenStarted {
+            viewModel.uiEvents.collect { event ->
+                when (event) {
+                    MainViewModel.UiEvent.NavigateUp -> onBackPressedDispatcher.onBackPressed()
+                }
             }
         }
     }
@@ -703,7 +713,10 @@ class MainActivity : BaseActivity(), SensorEventListener {
             intent.putExtra(LNG_MSG_ID, mMarkLatLngMap.longitude)
             intent.putExtra(ServiceGo.EXTRA_COORD_TYPE, ServiceGo.COORD_BD09)
             intent.putExtra(ServiceGo.EXTRA_RUN_MODE, runMode)
-            XLog.i("Putting extras: lat=${mMarkLatLngMap.latitude}, lng=${mMarkLatLngMap.longitude}, type=BD09, runMode=$runMode")
+            // 读取摇杆配置并传递
+            val joystickEnabled = sharedPreferences.getBoolean("setting_joystick_enabled", true)
+            intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, joystickEnabled)
+            XLog.i("Putting extras: lat=${mMarkLatLngMap.latitude}, lng=${mMarkLatLngMap.longitude}, type=BD09, runMode=$runMode, joystick=$joystickEnabled")
 
             // 8.0 之后需要 startForegroundService
             if (Build.VERSION.SDK_INT >= 26) {

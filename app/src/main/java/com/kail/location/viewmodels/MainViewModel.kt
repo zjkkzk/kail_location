@@ -10,6 +10,9 @@ import com.kail.location.repositories.RootMockRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -101,6 +104,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _runMode = MutableStateFlow(RUN_MODE_NOROOT)
     val runMode: StateFlow<String> = _runMode.asStateFlow()
+
+    sealed class UiEvent {
+        object NavigateUp : UiEvent()
+    }
+    private val _uiEvents = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
+    val uiEvents: SharedFlow<UiEvent> = _uiEvents.asSharedFlow()
 
     init {
         _runMode.value = sharedPreferences.getString(KEY_RUN_MODE, RUN_MODE_NOROOT) ?: RUN_MODE_NOROOT
@@ -227,5 +236,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mockRepo.startMock(loc.latitude, loc.longitude, mode)
             _isMocking.value = true
         }
+    }
+
+    fun requestNavigateUp() {
+        _uiEvents.tryEmit(UiEvent.NavigateUp)
     }
 }
