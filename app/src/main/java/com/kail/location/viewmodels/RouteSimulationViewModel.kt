@@ -66,6 +66,12 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
     private val _searchResults = MutableStateFlow<List<Map<String, Any>>>(emptyList())
     val searchResults: StateFlow<List<Map<String, Any>>> = _searchResults.asStateFlow()
 
+    private val _searchMarker = MutableStateFlow<LatLng?>(null)
+    /**
+     * 当前搜索结果选中点的状态流（用于在地图上标点）。
+     */
+    val searchMarker: StateFlow<LatLng?> = _searchMarker.asStateFlow()
+
     private val suggestionSearch: SuggestionSearch = SuggestionSearch.newInstance()
 
     companion object {
@@ -119,6 +125,25 @@ class RouteSimulationViewModel(application: Application) : AndroidViewModel(appl
 
     fun clearSearchResults() {
         _searchResults.value = emptyList()
+    }
+
+    /**
+     * 选中搜索结果。
+     * 更新搜索 Marker 并清空搜索结果列表。
+     *
+     * @param lat 纬度
+     * @param lng 经度
+     */
+    fun selectSearchResult(lat: Double, lng: Double) {
+        _searchMarker.value = LatLng(lat, lng)
+        _searchResults.value = emptyList()
+    }
+
+    /**
+     * 清除搜索 Marker。
+     */
+    fun clearSearchMarker() {
+        _searchMarker.value = null
     }
 
     /**

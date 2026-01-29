@@ -35,7 +35,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import android.widget.ImageView
 import com.kail.location.views.common.DrawerHeader
-import com.kail.location.views.common.PoiDetailCard
 import com.baidu.mapapi.map.BaiduMap
 
 
@@ -85,12 +84,6 @@ fun LocationPickerScreen(
     onMapTypeChange: (Int) -> Unit,
     onNavigate: (Int) -> Unit,
     appVersion: String,
-    selectedPoi: PoiInfo?,
-    onPoiClose: () -> Unit,
-    onPoiSave: (PoiInfo) -> Unit,
-    onPoiCopy: (PoiInfo) -> Unit,
-    onPoiShare: (PoiInfo) -> Unit,
-    onPoiFly: (PoiInfo) -> Unit,
     updateInfo: UpdateInfo?,
     onUpdateDismiss: () -> Unit,
     onUpdateConfirm: (String) -> Unit,
@@ -381,25 +374,6 @@ fun LocationPickerScreen(
                         onClick = onZoomOut
                     )
                 }
-
-                // POI Detail Card
-                if (selectedPoi != null) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp)
-                    ) {
-                        PoiDetailCard(
-                            poiName = selectedPoi.name,
-                            poiAddress = selectedPoi.address,
-                            onClose = onPoiClose,
-                            onSave = { onPoiSave(selectedPoi) },
-                            onCopy = { onPoiCopy(selectedPoi) },
-                            onShare = { onPoiShare(selectedPoi) },
-                            onFly = { onPoiFly(selectedPoi) }
-                        )
-                    }
-                }
             }
         }
     }
@@ -462,6 +436,9 @@ fun LocationPickerScreen(
  * @param info 更新信息对象
  * @param onDismiss 取消/关闭回调
  * @param onConfirm 确认下载回调
+ * @param onSearch 搜索关键字变化时的回调。
+ * @param searchResults 搜索结果列表。
+ * @param onSelectSearchResult 选中搜索结果时的回调。
  */
 @Composable
 fun UpdateDialog(

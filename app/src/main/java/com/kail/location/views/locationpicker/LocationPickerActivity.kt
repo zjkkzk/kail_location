@@ -262,14 +262,6 @@ class LocationPickerActivity : BaseActivity(), SensorEventListener {
                         mBaiduMap?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
                         
                         mMarkName = "Custom Location"
-                        viewModel.selectPoi(
-                             LocationPickerViewModel.PoiInfo(
-                                 name = "Custom Location",
-                                 address = "Lat: $lat, Lng: $lng",
-                                 latitude = target.latitude,
-                                 longitude = target.longitude
-                             )
-                        )
                     },
                     onMapTypeChange = { type ->
                         mBaiduMap?.mapType = type
@@ -314,25 +306,6 @@ class LocationPickerActivity : BaseActivity(), SensorEventListener {
                         }
                     },
                     appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "",
-                    selectedPoi = selectedPoi,
-                    onPoiClose = { viewModel.selectPoi(null) },
-                    onPoiSave = { poi ->
-                        recordCurrentLocation(poi.longitude, poi.latitude)
-                        GoUtils.DisplayToast(this, resources.getString(R.string.app_location_save))
-                    },
-                    onPoiCopy = { poi ->
-                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val mClipData = ClipData.newPlainText("Label", "${poi.latitude},${poi.longitude}")
-                        cm.setPrimaryClip(mClipData)
-                        GoUtils.DisplayToast(this, resources.getString(R.string.app_location_copy))
-                    },
-                    onPoiShare = { poi ->
-                        ShareUtils.shareText(this, "分享位置", "${poi.longitude},${poi.latitude}")
-                    },
-                    onPoiFly = { poi ->
-                         // Fly button logic: Start mock location
-                         doGoLocation()
-                    },
                     updateInfo = updateInfo,
                     onUpdateDismiss = { viewModel.setUpdateInfo(null) },
                     onUpdateConfirm = { url ->
@@ -360,15 +333,6 @@ class LocationPickerActivity : BaseActivity(), SensorEventListener {
                                 .draggable(true)
                             mBaiduMap?.addOverlay(option)
                             mBaiduMap?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
-                            
-                            viewModel.selectPoi(
-                                LocationPickerViewModel.PoiInfo(
-                                    name = item[LocationPickerViewModel.POI_NAME].toString(),
-                                    address = item[LocationPickerViewModel.POI_ADDRESS].toString(),
-                                    latitude = latVal,
-                                    longitude = lngVal
-                                )
-                            )
                         }
                     },
                     onNavigateUp = { viewModel.requestNavigateUp() }
@@ -591,15 +555,6 @@ class LocationPickerActivity : BaseActivity(), SensorEventListener {
                     .draggable(true)
                 mBaiduMap?.addOverlay(option)
                 mBaiduMap?.setMapStatus(MapStatusUpdateFactory.newLatLng(mMarkLatLngMap))
-                
-                viewModel.selectPoi(
-                    LocationPickerViewModel.PoiInfo(
-                        name = reverseGeoCodeResult.address,
-                        address = reverseGeoCodeResult.address,
-                        latitude = mMarkLatLngMap.latitude,
-                        longitude = mMarkLatLngMap.longitude
-                    )
-                )
 
                 /* 保存历史记录 */
                 val bd09Lng = mMarkLatLngMap.longitude.toString()

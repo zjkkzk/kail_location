@@ -111,6 +111,10 @@ fun RoutePlanScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val searchResults by viewModel.searchResults.collectAsState()
+    val searchMarker by viewModel.searchMarker.collectAsState()
+
+    // Search Marker Overlay
+    var searchMarkerOverlay by remember { mutableStateOf<Overlay?>(null) }
 
     if (showRunModeDialog) {
         AlertDialog(
@@ -309,6 +313,23 @@ fun RoutePlanScreen(
         }
     }
 
+    LaunchedEffect(searchMarker, mapView) {
+        val map = mapView?.map
+        if (map != null) {
+            searchMarkerOverlay?.remove()
+            searchMarkerOverlay = null
+            if (searchMarker != null) {
+                val option = MarkerOptions()
+                    .position(searchMarker)
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.icon_gcoding)) // Reusing icon
+                    .zIndex(10)
+                    .draggable(false)
+                searchMarkerOverlay = map.addOverlay(option)
+                map.animateMapStatus(MapStatusUpdateFactory.newLatLng(searchMarker))
+            }
+        }
+    }
+
     if (showLocationInputDialog) {
         LocationInputDialog(
             onDismiss = { showLocationInputDialog = false },
@@ -425,6 +446,7 @@ fun RoutePlanScreen(
                                 isSearchActive = false
                                 searchQuery = ""
                                 viewModel.clearSearchResults()
+                                viewModel.clearSearchMarker()
                             }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                             }
@@ -452,12 +474,10 @@ fun RoutePlanScreen(
                                         modifier = Modifier.clickable {
                                             val lat = item[RouteSimulationViewModel.POI_LATITUDE] as Double
                                             val lng = item[RouteSimulationViewModel.POI_LONGITUDE] as Double
-                                            val target = LatLng(lat, lng)
-                                            mapView?.map?.animateMapStatus(MapStatusUpdateFactory.newLatLng(target))
+                                            viewModel.selectSearchResult(lat, lng)
                                             
                                             isSearchActive = false
                                             searchQuery = ""
-                                            viewModel.clearSearchResults()
                                         }
                                     )
                                 }

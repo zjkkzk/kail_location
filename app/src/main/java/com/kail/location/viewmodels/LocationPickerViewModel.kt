@@ -150,7 +150,7 @@ class LocationPickerViewModel(application: Application) : AndroidViewModel(appli
             suggestionSearch.requestSuggestion(
                 com.baidu.mapapi.search.sug.SuggestionSearchOption()
                     .keyword(keyword)
-                    .city(city ?: "")
+                    .city(city ?: "全国")
             )
         } catch (e: Exception) {
             e.printStackTrace()
