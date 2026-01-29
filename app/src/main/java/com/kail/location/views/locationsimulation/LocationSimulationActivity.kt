@@ -112,4 +112,9 @@ class LocationSimulationActivity : BaseActivity() {
         }
 
     }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadRecords()
+    }
 }

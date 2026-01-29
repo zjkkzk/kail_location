@@ -718,6 +718,9 @@ class MainActivity : BaseActivity(), SensorEventListener {
             intent.putExtra(ServiceGo.EXTRA_JOYSTICK_ENABLED, joystickEnabled)
             XLog.i("Putting extras: lat=${mMarkLatLngMap.latitude}, lng=${mMarkLatLngMap.longitude}, type=BD09, runMode=$runMode, joystick=$joystickEnabled")
 
+            // 自动保存历史记录
+            recordCurrentLocation(mMarkLatLngMap.longitude, mMarkLatLngMap.latitude)
+
             // 8.0 之后需要 startForegroundService
             if (Build.VERSION.SDK_INT >= 26) {
                 startForegroundService(intent)

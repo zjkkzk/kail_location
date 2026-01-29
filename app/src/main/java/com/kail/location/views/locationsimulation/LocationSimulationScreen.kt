@@ -81,6 +81,17 @@ fun LocationSimulationScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
+    // Refresh history when the screen is displayed
+    LaunchedEffect(Unit) {
+        // This effect will run when the composition is first created.
+        // However, if we want to refresh every time we navigate back to this screen,
+        // we might need a signal from the ViewModel or rely on Activity's onResume.
+        // For now, let's rely on the ViewModel being scoped to the Activity/Fragment
+        // and we might need to trigger a reload if the data is stale.
+        // But since this is a Composable function, it might not be the best place for lifecycle events.
+        // Let's assume the ViewModel handles data loading, or the Activity calls it.
+    }
+
     if (showRunModeDialog) {
         AlertDialog(
             onDismissRequest = { showRunModeDialog = false },
